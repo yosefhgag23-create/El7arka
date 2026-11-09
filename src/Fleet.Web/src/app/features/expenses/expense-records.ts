@@ -1,4 +1,4 @@
-import { Component, OnInit, booleanAttribute, inject, input } from '@angular/core';
+import { Component, OnInit, booleanAttribute, computed, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -9,13 +9,14 @@ import { ExpenseListItem, ExpenseSourceType, PagedResult } from '../../core/mode
 import { NotifyService } from '../../core/notify.service';
 import { CellDef, Column, DataTable, ListState } from '../../shared/data-table';
 import { FilterSelect, Period, PeriodFilter, SearchBox } from '../../shared/fields';
+import { ExportButtons } from '../../shared/export';
 import { Badge } from '../../shared/ui';
 import { openDialog } from '../assignments/dialogs';
 import { ExpenseDialog } from './expense-dialog';
 
 @Component({
   selector: 'app-expense-records',
-  imports: [DataTable, CellDef, SearchBox, FilterSelect, PeriodFilter, Badge, RouterLink, MatTooltipModule],
+  imports: [DataTable, CellDef, SearchBox, FilterSelect, PeriodFilter, Badge, RouterLink, MatTooltipModule, ExportButtons],
   template: `
     <div class="card">
       <div class="filters">
@@ -24,6 +25,7 @@ import { ExpenseDialog } from './expense-dialog';
         <app-filter-select placeholder="كل المصادر" [options]="sources" [value]="list.query().sourceType" (valueChange)="list.patch({ sourceType: $event })" />
         <app-period [from]="list.query().from" [to]="list.query().to" (change)="setPeriod($event)" />
         <span class="spacer"></span>
+        <app-export report="operating-expenses" [query]="exportQuery()" />
         <button class="btn primary" (click)="add()"><span class="material-symbols-outlined">add</span>تسجيل مصروف</button>
       </div>
       <app-data-table [columns]="cols" [rows]="list.rows()" [total]="list.total()" [loading]="list.loading()"
@@ -86,6 +88,10 @@ export class ExpenseRecords implements OnInit {
   }
 
   setPeriod(p: Period): void { this.list.patch({ from: p.from, to: p.to }); }
+  exportQuery = computed(() => {
+    const q = this.list.query();
+    return { from: q.from, to: q.to, expenseCategoryId: q.categoryId, ...this.fixed() };
+  });
   async add(): Promise<void> {
     if (await openDialog(this.dialog, ExpenseDialog, { equipmentId: this.fixed()['equipmentId'], projectId: this.fixed()['projectId'] }, '680px')) this.list.load();
   }

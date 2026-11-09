@@ -48,8 +48,16 @@ export const authGuard: CanActivateFn = async (_r, state) => {
   const router = inject(Router);
   const user = await auth.ensureLoaded();
   if (!user) return router.createUrlTree(['/login'], { queryParams: { returnUrl: state.url } });
-  if (user.mustChangePassword && !state.url.startsWith('/account')) return router.createUrlTree(['/account'], { queryParams: { force: 1 } });
+  if (user.mustChangePassword) return router.createUrlTree(['/change-password']);
   return true;
+};
+
+/** The forced password screen: signed-in users only, and only while a change is still required. */
+export const mustChangePasswordGuard: CanActivateFn = async () => {
+  const router = inject(Router);
+  const user = await inject(AuthService).ensureLoaded();
+  if (!user) return router.createUrlTree(['/login']);
+  return user.mustChangePassword ? true : router.createUrlTree(['/account']);
 };
 
 export const adminGuard: CanActivateFn = async () => {

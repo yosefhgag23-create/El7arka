@@ -4,7 +4,7 @@ import { fmtMoney, fmtNumber } from '../../core/format';
 import { SEGMENT_STATUS, meterUnit } from '../../core/labels';
 import { FuelConsumptionDto, FuelSegmentDto } from '../../core/models';
 import { NotifyService } from '../../core/notify.service';
-import { Chart, lineChart } from '../../shared/charts';
+import { BRAND, Chart, lineChart } from '../../shared/charts';
 import { CellDef, Column, DataTable } from '../../shared/data-table';
 import { Period, PeriodFilter } from '../../shared/fields';
 import { Badge, StatCard } from '../../shared/ui';
@@ -85,7 +85,7 @@ export class FuelConsumption implements OnInit {
   chart = computed(() => {
     const segs = this.validSegments();
     const val = (s: FuelSegmentDto) => (this.km() ? s.meterPerUnit : s.unitsPerMeter) ?? 0;
-    return lineChart(segs.map(s => fmtDate(s.date)), [{ name: this.km() ? 'كم/لتر' : 'لتر/ساعة', data: segs.map(val), color: '#18181b' }], { money: false, area: true });
+    return lineChart(segs.map(s => fmtDate(s.date)), [{ name: this.km() ? 'كم/لتر' : 'لتر/ساعة', data: segs.map(val), color: BRAND }], { money: false, area: true });
   });
 
   qty = (v?: number) => (v === undefined ? '—' : `${fmtNumber(v)} ${this.c()?.unit ?? ''}`);

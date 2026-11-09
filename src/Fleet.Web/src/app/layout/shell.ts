@@ -47,7 +47,7 @@ const NAV: NavGroup[] = [
     <aside class="sidebar" [class.collapsed]="collapsed()">
       <div class="brand">
         @if (logoUrl(); as logo) { <img [src]="logo" alt="" class="logo" /> }
-        @else { <div class="mark">ح</div> }
+        @else { <img src="brand/mark.png" alt="" class="logo" /> }
         @if (!collapsed()) {
           <div class="brand-text">
             <strong>{{ companyName() }}</strong>
@@ -105,7 +105,7 @@ const NAV: NavGroup[] = [
       display: flex; flex-direction: column; transition: width .18s ease; }
     .sidebar.collapsed { width: var(--sidebar-w-collapsed); }
     .brand { height: var(--topbar-h); display: flex; align-items: center; gap: 10px; padding: 0 16px; border-bottom: 1px solid var(--border); overflow: hidden; }
-    .mark { width: 34px; height: 34px; border-radius: 8px; background: var(--text); color: #fff; display: grid; place-items: center; font-weight: 700; flex-shrink: 0; }
+    .mark { width: 34px; height: 34px; border-radius: 8px; background: var(--brand); color: #fff; display: grid; place-items: center; font-weight: 700; flex-shrink: 0; }
     .logo { width: 34px; height: 34px; object-fit: contain; flex-shrink: 0; }
     .brand-text { display: flex; flex-direction: column; min-width: 0; }
     .brand-text strong { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -116,6 +116,7 @@ const NAV: NavGroup[] = [
     nav a { display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 10px; border-radius: 6px; color: var(--text-2, #3f3f46); font-size: 13.5px; white-space: nowrap; }
     nav a:hover { background: var(--subtle); color: var(--text); }
     nav a.active { background: var(--text); color: #fff; }
+    nav a.active .material-symbols-outlined { color: #fdba74; }
     nav a .material-symbols-outlined { font-size: 20px; }
     .collapsed nav a { justify-content: center; padding: 0; }
     .collapse { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 20px; border: 0; border-top: 1px solid var(--border); background: none;
@@ -125,9 +126,10 @@ const NAV: NavGroup[] = [
     .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
     .topbar { height: var(--topbar-h); flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 0 28px; background: var(--surface); border-bottom: 1px solid var(--border); }
     .quick { display: flex; gap: 6px; }
+    .quick .material-symbols-outlined { color: var(--brand); }
     .user { display: flex; align-items: center; gap: 10px; border: 0; background: none; cursor: pointer; font: inherit; padding: 4px 8px; border-radius: 8px; }
     .user:hover { background: var(--subtle); }
-    .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--subtle); border: 1px solid var(--border); display: grid; place-items: center; font-weight: 600; }
+    .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--brand-soft); color: var(--brand-strong); border: 1px solid var(--brand-border); display: grid; place-items: center; font-weight: 600; }
     .who { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.3; }
     .who strong { font-size: 13px; } .who span { font-size: 11px; color: var(--muted); }
     main { flex: 1; overflow-y: auto; }

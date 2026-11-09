@@ -17,10 +17,10 @@ import { PageHeader } from '../../shared/ui';
   selector: 'app-project-form',
   imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatSelectModule, DateField, PageHeader, RouterLink],
   template: `
-    <div class="page">
+    <div class="page form-page">
       <app-page-header [title]="id() ? 'تعديل مشروع' : 'مشروع جديد'"
         [crumbs]="[{ label: 'المشروعات', link: '/projects' }, { label: id() ? 'تعديل' : 'جديد' }]" />
-      <form class="card" style="max-width:900px" [formGroup]="form" (ngSubmit)="save()">
+      <form class="card" [formGroup]="form" (ngSubmit)="save()">
         <div class="card-body">
           <div class="form-grid">
             <mat-form-field>

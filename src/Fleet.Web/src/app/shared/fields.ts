@@ -225,32 +225,39 @@ export class EntitySelect implements ControlValueAccessor {
 @Component({
   selector: 'app-file-upload',
   template: `
-    <div class="box" [class.drag]="drag()" (dragover)="$event.preventDefault(); drag.set(true)" (dragleave)="drag.set(false)" (drop)="onDrop($event)">
+    <div class="box" [class.drag]="drag()" [class.empty]="!current()" (click)="!current() && !uploading() && file.click()"
+      (dragover)="$event.preventDefault(); drag.set(true)" (dragleave)="drag.set(false)" (drop)="onDrop($event)">
       <span class="material-symbols-outlined">attach_file</span>
       @if (current()) {
         <a class="link" [href]="url(current())" target="_blank">{{ name() || 'عرض المرفق' }}</a>
         @if (size()) { <span class="muted small">{{ size() }}</span> }
         <span class="spacer"></span>
+        <a class="btn ghost sm" [href]="downloadUrl(current())" download>تنزيل</a>
         <button class="btn ghost sm" type="button" (click)="remove()">إزالة</button>
       } @else {
-        <span class="muted">{{ uploading() ? 'جارٍ الرفع...' : label() }}</span>
+        <div class="txt">
+          <span class="muted">{{ uploading() ? 'جارٍ الرفع...' : label() }}</span>
+          <span class="muted small">صور (JPG, PNG, WEBP) أو PDF — حتى 15 ميجابايت. يمكنك سحب الملف هنا.</span>
+        </div>
         <span class="spacer"></span>
-        <button class="btn sm" type="button" [disabled]="uploading()" (click)="file.click()">اختيار ملف</button>
+        <button class="btn sm" type="button" [disabled]="uploading()" (click)="$event.stopPropagation(); file.click()">اختيار ملف</button>
       }
       <input #file type="file" hidden [accept]="accept()" (change)="onPick(file)" />
     </div>
   `,
   styles: `
     .box { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px dashed var(--border-strong); border-radius: 8px; background: var(--surface); }
-    .box.drag { border-color: var(--text); background: var(--subtle); }
-    .material-symbols-outlined { color: var(--muted); }
+    .box.empty { cursor: pointer; }
+    .box.empty:hover, .box.drag { border-color: var(--brand); background: var(--brand-soft); }
+    .txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .material-symbols-outlined { color: var(--brand); }
   `,
 })
 export class FileUpload {
   private api = inject(ApiService);
   private notify = inject(NotifyService);
   label = input('إرفاق صورة الفاتورة أو الإيصال (اختياري)');
-  accept = input('image/*,application/pdf');
+  accept = input('.jpg,.jpeg,.png,.webp,.gif,.pdf');
   ownerType = input<AttachmentOwnerType>('None');
   current = input<number | null | undefined>(null);
   uploaded = output<number | null>();
@@ -260,6 +267,7 @@ export class FileUpload {
   size = signal('');
 
   url = (id: number | null | undefined) => ApiService.attachmentUrl(id);
+  downloadUrl = (id: number | null | undefined) => ApiService.attachmentUrl(id, true);
 
   onPick(input: HTMLInputElement): void {
     const f = input.files?.[0];
@@ -273,6 +281,14 @@ export class FileUpload {
     if (f) this.upload(f);
   }
   async upload(f: File): Promise<void> {
+    if (!/\.(jpe?g|png|webp|gif|pdf)$/i.test(f.name)) {
+      this.notify.error(new Error(`نوع الملف "${f.name}" غير مسموح. المسموح: صور (JPG, PNG, WEBP) أو PDF`));
+      return;
+    }
+    if (f.size > 15 * 1024 * 1024) {
+      this.notify.error(new Error('حجم الملف يتجاوز 15 ميجابايت'));
+      return;
+    }
     this.uploading.set(true);
     try {
       const a = await this.api.upload<AttachmentDto>('attachments', f, { ownerType: this.ownerType() });

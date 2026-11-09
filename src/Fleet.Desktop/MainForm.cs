@@ -40,6 +40,7 @@ internal sealed class MainForm : Form
         }
 
         var core = web.CoreWebView2;
+        await ClearCacheIfUiChangedAsync(core);
         core.Settings.IsStatusBarEnabled = false;
         core.Settings.IsZoomControlEnabled = true;
 #if !DEBUG
@@ -54,6 +55,21 @@ internal sealed class MainForm : Form
         };
         core.Navigate(home.ToString());
         return true;
+    }
+
+    /// <summary>After an update, drops the browser disk cache (login cookies are kept) so the new UI is loaded instead of cached files.</summary>
+    private async Task ClearCacheIfUiChangedAsync(CoreWebView2 core)
+    {
+        try
+        {
+            var index = Path.Combine(AppContext.BaseDirectory, "wwwroot", "index.html");
+            var stamp = File.Exists(index) ? File.GetLastWriteTimeUtc(index).Ticks.ToString() : "";
+            var marker = Path.Combine(userDataFolder, "ui-build.txt");
+            if (File.Exists(marker) && File.ReadAllText(marker) == stamp) return;
+            await core.Profile.ClearBrowsingDataAsync(CoreWebView2BrowsingDataKinds.DiskCache | CoreWebView2BrowsingDataKinds.CacheStorage);
+            File.WriteAllText(marker, stamp);
+        }
+        catch (IOException) { }
     }
 
     public void BringToForeground()

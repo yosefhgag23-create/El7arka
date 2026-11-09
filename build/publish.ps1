@@ -66,8 +66,19 @@ if (-not (Test-Path (Join-Path $publishDir 'wwwroot\index.html'))) { throw 'Publ
 
 Step 'Creating portable zip'
 $zip = Join-Path $artifacts "El7arka-$version-portable-$Runtime.zip"
-if (Test-Path $zip) { Remove-Item -LiteralPath $zip }
-Compress-Archive -Path (Join-Path $publishDir '*') -DestinationPath $zip -CompressionLevel Optimal
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+# Freshly written files are briefly locked by antivirus scanners, so retry before giving up.
+for ($try = 1; ; $try++) {
+    if (Test-Path $zip) { Remove-Item -LiteralPath $zip }
+    try {
+        [System.IO.Compression.ZipFile]::CreateFromDirectory($publishDir, $zip, [System.IO.Compression.CompressionLevel]::Optimal, $false)
+        break
+    } catch {
+        if ($try -ge 6) { throw }
+        Write-Warning "Zip attempt $try failed ($($_.Exception.InnerException.Message)); retrying in 5s..."
+        Start-Sleep -Seconds 5
+    }
+}
 Write-Host "Portable: $zip"
 
 Step 'Building installer'

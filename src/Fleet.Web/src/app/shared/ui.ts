@@ -58,7 +58,7 @@ export class PageHeader {
     :host { display: block; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; min-height: 104px; }
     .top { display: flex; align-items: center; gap: 8px; }
     .label { color: var(--muted); font-size: 12px; flex: 1; }
-    .ic { color: var(--faint); font-size: 20px; }
+    .ic { color: var(--brand); background: var(--brand-soft); font-size: 18px; width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; }
     .value { font-size: 24px; font-weight: 600; margin-top: 6px; letter-spacing: -0.02em; }
     .value.success { color: var(--success); } .value.warning { color: var(--warning); } .value.danger { color: var(--danger); }
     .hint { color: var(--muted); font-size: 12px; margin-top: 4px; }

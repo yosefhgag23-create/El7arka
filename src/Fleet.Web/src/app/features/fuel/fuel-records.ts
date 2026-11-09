@@ -1,4 +1,4 @@
-import { Component, OnInit, booleanAttribute, inject, input } from '@angular/core';
+import { Component, OnInit, booleanAttribute, computed, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -10,12 +10,13 @@ import { NotifyService } from '../../core/notify.service';
 import { CellDef, Column, DataTable, ListState } from '../../shared/data-table';
 import { FilterSelect, Period, PeriodFilter, SearchBox } from '../../shared/fields';
 import { Badge } from '../../shared/ui';
+import { ExportButtons } from '../../shared/export';
 import { openDialog } from '../assignments/dialogs';
 import { FuelDialog } from './fuel-dialog';
 
 @Component({
   selector: 'app-fuel-records',
-  imports: [DataTable, CellDef, SearchBox, FilterSelect, PeriodFilter, Badge, RouterLink, MatTooltipModule, NumPipe],
+  imports: [DataTable, CellDef, SearchBox, FilterSelect, PeriodFilter, Badge, RouterLink, MatTooltipModule, NumPipe, ExportButtons],
   template: `
     <div class="card">
       <div class="filters">
@@ -23,6 +24,7 @@ import { FuelDialog } from './fuel-dialog';
         <app-filter-select placeholder="كل أنواع الوقود" numeric [options]="fuelTypes" [value]="list.query().fuelTypeId" (valueChange)="list.patch({ fuelTypeId: $event })" />
         <app-period [from]="list.query().from" [to]="list.query().to" (change)="setPeriod($event)" />
         <span class="spacer"></span>
+        <app-export report="fuel" [query]="exportQuery()" />
         <button class="btn primary" (click)="add()"><span class="material-symbols-outlined">add</span>تسجيل تموين</button>
       </div>
       <app-data-table [columns]="cols" [rows]="list.rows()" [total]="list.total()" [loading]="list.loading()"
@@ -80,6 +82,7 @@ export class FuelRecords implements OnInit {
   }
 
   setPeriod(p: Period): void { this.list.patch({ from: p.from, to: p.to }); }
+  exportQuery = computed(() => ({ from: this.list.query().from, to: this.list.query().to, ...this.fixed() }));
   async add(): Promise<void> { if (await openDialog(this.dialog, FuelDialog, { equipmentId: this.fixed()['equipmentId'] }, '720px')) this.list.load(); }
   async edit(r: FuelListItem): Promise<void> { if (await openDialog(this.dialog, FuelDialog, { item: r }, '720px')) this.list.load(); }
   async remove(r: FuelListItem): Promise<void> {

@@ -17,10 +17,10 @@ import { PageHeader } from '../../shared/ui';
   selector: 'app-driver-form',
   imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatSelectModule, DateField, PageHeader, RouterLink],
   template: `
-    <div class="page">
+    <div class="page form-page">
       <app-page-header [title]="id() ? 'تعديل بيانات سائق' : 'سائق جديد'"
         [crumbs]="[{ label: 'السائقون', link: '/drivers' }, { label: id() ? 'تعديل' : 'جديد' }]" />
-      <form class="card" style="max-width:900px" [formGroup]="form" (ngSubmit)="save()">
+      <form class="card" [formGroup]="form" (ngSubmit)="save()">
         <div class="card-body">
           <div class="form-grid">
             <div class="form-section-title">البيانات الشخصية</div>

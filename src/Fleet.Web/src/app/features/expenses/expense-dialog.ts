@@ -1,17 +1,16 @@
-﻿import { Component, computed, inject, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+﻿import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { ApiService } from '../../core/api.service';
-import { fmtMoney, todayIso } from '../../core/format';
+import { todayIso } from '../../core/format';
 import { LookupsService } from '../../core/lookups.service';
 import { ExpenseListItem } from '../../core/models';
 import { NotifyService } from '../../core/notify.service';
 import { DateField, EntitySelect, FileUpload } from '../../shared/fields';
-import { applyServerErrors, clean, err } from '../../shared/forms';
+import { applyServerErrors, autoFillFromEquipment, clean, err, linkAmounts } from '../../shared/forms';
 
 export interface ExpenseDialogData { item?: ExpenseListItem; equipmentId?: number; projectId?: number; }
 
@@ -33,7 +32,7 @@ export interface ExpenseDialogData { item?: ExpenseListItem; equipmentId?: numbe
           </mat-form-field>
           <app-date-field label="التاريخ" formControlName="expenseDate" required [error]="e('expenseDate')" />
           <app-entity-select kind="equipment" label="المعدة" formControlName="equipmentId" [error]="e('equipmentId')" hint="حدد المعدة أو المشروع أو كليهما" />
-          <app-entity-select kind="projects" label="المشروع" formControlName="projectId" [error]="e('projectId')" hint="إن تُرك فارغاً يُحدد من تخصيص المعدة" />
+          <app-entity-select kind="projects" label="المشروع" formControlName="projectId" [error]="e('projectId')" hint="يُملأ تلقائياً من تخصيص المعدة في التاريخ" />
           <mat-form-field>
             <mat-label>الكمية (اختياري)</mat-label>
             <input matInput type="number" formControlName="quantity" />
@@ -46,8 +45,8 @@ export interface ExpenseDialogData { item?: ExpenseListItem; equipmentId?: numbe
           </mat-form-field>
           <mat-form-field>
             <mat-label>المبلغ</mat-label>
-            <input matInput type="number" formControlName="amount" [placeholder]="calc()" />
-            @if (calc()) { <mat-hint>محسوب: {{ calc() }}</mat-hint> }
+            <input matInput type="number" formControlName="amount" />
+            <mat-hint>يُحسب تلقائياً من الكمية × السعر</mat-hint>
             <mat-error>{{ e('amount') }}</mat-error>
           </mat-form-field>
           <mat-form-field>
@@ -89,10 +88,9 @@ export class ExpenseDialog {
     attachmentId: [this.i?.attachmentId ?? null as number | null],
     notes: [this.i?.notes ?? ''],
   });
-  private v = toSignal(this.form.valueChanges, { initialValue: this.form.value });
-  calc = computed(() => {
-    const q = Number(this.v().quantity), p = Number(this.v().unitPrice);
-    return q > 0 && p >= 0 && this.v().unitPrice !== null ? fmtMoney(q * p) : '';
+  private linked = linkAmounts(this.form, { quantity: 'quantity', price: 'unitPrice', total: 'amount' });
+  private defaults = autoFillFromEquipment(this.form, {
+    equipment: 'equipmentId', date: 'expenseDate', fill: { projectId: 'projectId' }, runNow: !this.i && !this.d.projectId,
   });
   e = (k: string) => err(this.form.get(k));
 

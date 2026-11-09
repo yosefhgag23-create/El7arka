@@ -1,4 +1,4 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
@@ -43,7 +43,16 @@ export class ApiService {
   }
 
   async download(url: string, q?: QueryLike): Promise<void> {
-    const res = await firstValueFrom(this.http.get(`/api/${url}`, { params: ApiService.params(q), responseType: 'blob', observe: 'response' }));
+    const res = await firstValueFrom(this.http.get(`/api/${url}`, { params: ApiService.params(q), responseType: 'blob', observe: 'response' }))
+      .catch(async (err: unknown) => {
+        // Error bodies of blob requests arrive as a Blob; parse them so the server's message reaches the user.
+        if (err instanceof HttpErrorResponse && err.error instanceof Blob) {
+          let error: unknown = null;
+          try { error = JSON.parse(await err.error.text()); } catch { /* not JSON */ }
+          throw new HttpErrorResponse({ error, status: err.status, statusText: err.statusText, url: err.url ?? undefined });
+        }
+        throw err;
+      });
     const cd = res.headers.get('content-disposition') ?? '';
     const match = /filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i.exec(cd);
     const name = decodeURIComponent(match?.[1] ?? match?.[2] ?? 'report');

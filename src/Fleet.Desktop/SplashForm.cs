@@ -9,7 +9,7 @@ internal sealed class SplashForm : Form
         FormBorderStyle = FormBorderStyle.None;
         StartPosition = FormStartPosition.CenterScreen;
         ShowInTaskbar = true;
-        Size = new Size(460, 220);
+        Size = new Size(460, 380);
         BackColor = Color.White;
         RightToLeft = RightToLeft.Yes;
         RightToLeftLayout = true;
@@ -25,7 +25,7 @@ internal sealed class SplashForm : Form
             AutoSize = false,
             Dock = DockStyle.Top,
             Height = 52,
-            TextAlign = ContentAlignment.MiddleRight,
+            TextAlign = ContentAlignment.MiddleCenter,
         };
         var subtitle = new Label
         {
@@ -34,7 +34,7 @@ internal sealed class SplashForm : Form
             ForeColor = Color.FromArgb(90, 90, 90),
             Dock = DockStyle.Top,
             Height = 30,
-            TextAlign = ContentAlignment.MiddleRight,
+            TextAlign = ContentAlignment.MiddleCenter,
         };
         var progress = new ProgressBar
         {
@@ -57,6 +57,8 @@ internal sealed class SplashForm : Form
         Controls.Add(progress);
         Controls.Add(subtitle);
         Controls.Add(title);
+        if (AppIcon.LoadLogo() is { } logo)
+            Controls.Add(new PictureBox { Image = logo, SizeMode = PictureBoxSizeMode.Zoom, Dock = DockStyle.Top, Height = 160 });
     }
 
     public void SetStatus(string text) => status.Text = text;

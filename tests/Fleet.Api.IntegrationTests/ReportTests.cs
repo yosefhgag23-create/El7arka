@@ -13,7 +13,7 @@ public class ReportTests(ApiFixture fx)
     private async Task<int> Lookup(string kind, string nameEn) =>
         (await _c.Get($"/api/lookups/{kind}")).EnumerateArray().First(i => i.GetProperty("nameEn").GetString() == nameEn).GetProperty("id").GetInt32();
 
-    private async Task SeedAsync()
+    private async Task<int> SeedAsync()
     {
         var p = await _c.PostId("/api/projects", new { code = "RP-" + U(), name = "مشروع التقارير", startDate = D(200), status = "Active" });
         var eq = await _c.PostId("/api/equipment", new
@@ -31,18 +31,20 @@ public class ReportTests(ApiFixture fx)
             meterReading = 6_000, partsCost = 600, laborCost = 250, nextDueMeter = 11_000
         });
         await _c.PostId("/api/expenses", new { equipmentId = eq, categoryId = await Lookup("ExpenseCategories", "Road Tolls"), expenseDate = D(7), amount = 75 });
+        return eq;
     }
 
     [Fact]
     public async Task Every_report_builds_and_exports_to_pdf_and_excel()
     {
-        await SeedAsync();
+        var eq = await SeedAsync();
         var catalog = (await _c.Get("/api/reports")).EnumerateArray().ToList();
         Assert.True(catalog.Count >= 18);
-        var query = $"from={D(120)}&to={D(0)}&asOf={D(0)}";
+        Assert.Equal(catalog.Count, catalog.Select(r => r.GetProperty("key").GetString()).Distinct().Count());
 
         foreach (var key in catalog.Select(r => r.GetProperty("key").GetString()!))
         {
+            var query = $"from={D(120)}&to={D(0)}&asOf={D(0)}" + (key == "equipment-depreciation-schedule" ? $"&equipmentId={eq}" : "");
             var doc = await _c.Get($"/api/reports/{key}?{query}");
             Assert.Equal(key, doc.GetProperty("key").GetString());
             Assert.True(doc.GetProperty("tables").GetArrayLength() > 0, key);
@@ -77,6 +79,18 @@ public class ReportTests(ApiFixture fx)
 
         var expenses = await _c.Get($"/api/reports/operating-expenses?{query}");
         Assert.Equal(totals.Dec("totalCash"), SummaryValue(expenses, 0));
+    }
+
+    [Fact]
+    public async Task Equipment_depreciation_schedule_requires_equipment_and_lists_every_month()
+    {
+        var eq = await SeedAsync();
+        var missing = await _c.GetAsync("/api/reports/equipment-depreciation-schedule");
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, missing.StatusCode);
+
+        var doc = await _c.Get($"/api/reports/equipment-depreciation-schedule?equipmentId={eq}");
+        var screen = await _c.Get($"/api/equipment/{eq}/depreciation-schedule");
+        Assert.Equal(screen.GetArrayLength(), doc.GetProperty("tables")[0].GetProperty("rows").GetArrayLength());
     }
 
     [Fact]

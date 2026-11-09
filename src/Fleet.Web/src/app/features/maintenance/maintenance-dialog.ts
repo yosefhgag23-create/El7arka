@@ -1,18 +1,19 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { merge } from 'rxjs';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { ApiService } from '../../core/api.service';
-import { fmtMoney, fmtNumber, todayIso } from '../../core/format';
+import { fmtMoney, fmtNumber, fromIso, toIso, todayIso } from '../../core/format';
 import { meterUnit } from '../../core/labels';
 import { LookupsService } from '../../core/lookups.service';
 import { EquipmentDto, MaintenanceListItem, MeterType } from '../../core/models';
 import { NotifyService } from '../../core/notify.service';
 import { DateField, EntitySelect, FileUpload } from '../../shared/fields';
-import { applyServerErrors, clean, err } from '../../shared/forms';
+import { applyServerErrors, autoFillFromEquipment, clean, err } from '../../shared/forms';
 
 export interface MaintenanceDialogData { item?: MaintenanceListItem; equipmentId?: number; maintenanceTypeId?: number; }
 
@@ -73,7 +74,7 @@ export interface MaintenanceDialogData { item?: MaintenanceListItem; equipmentId
             <input matInput type="number" formControlName="downtimeDays" />
             <mat-error>{{ e('downtimeDays') }}</mat-error>
           </mat-form-field>
-          <app-entity-select kind="projects" label="المشروع" formControlName="projectId" hint="يُحدد تلقائياً من تخصيص المعدة" />
+          <app-entity-select kind="projects" label="المشروع" formControlName="projectId" hint="يُملأ تلقائياً من تخصيص المعدة في التاريخ" />
           <mat-form-field class="full"><mat-label>ملاحظات</mat-label><input matInput formControlName="notes" /></mat-form-field>
           <div class="full"><app-file-upload ownerType="Maintenance" [current]="form.value.attachmentId" (uploaded)="form.controls.attachmentId.setValue($event)" /></div>
         </div>
@@ -91,6 +92,7 @@ export class MaintenanceDialog implements OnInit {
   private api = inject(ApiService);
   private notify = inject(NotifyService);
   private lookups = inject(LookupsService);
+  private destroy = inject(DestroyRef);
   types = this.lookups.active('MaintenanceTypes');
   busy = signal(false);
   meterType = signal<MeterType>('Kilometers');
@@ -125,12 +127,39 @@ export class MaintenanceDialog implements OnInit {
       this.meterType() === 'Kilometers' && t.defaultIntervalKm ? `${fmtNumber(t.defaultIntervalKm)} كم` : '',
       this.meterType() === 'EngineHours' && t.defaultIntervalHours ? `${fmtNumber(t.defaultIntervalHours)} ساعة` : '',
     ].filter(Boolean);
-    return parts.length ? `الفترة الافتراضية: كل ${parts.join(' أو ')} — تُحسب تلقائياً إن تُركت فارغة` : '';
+    return parts.length ? `محسوب تلقائياً: كل ${parts.join(' أو ')}` : '';
   });
   e = (k: string) => err(this.form.get(k));
+  private defaults = autoFillFromEquipment(this.form, {
+    equipment: 'equipmentId', date: 'maintenanceDate', fill: { projectId: 'projectId' }, runNow: !this.i,
+  });
+  /** Last values suggested for the next-due fields; a field still holding its suggestion may be re-suggested. */
+  private suggested: { nextDueDate?: string | null; nextDueMeter?: number | null } = {};
 
   ngOnInit(): void {
     if (this.form.value.equipmentId) this.loadEquipment(this.form.value.equipmentId);
+    const c = this.form.controls;
+    merge(c.maintenanceTypeId.valueChanges, c.maintenanceDate.valueChanges, c.meterReading.valueChanges)
+      .pipe(takeUntilDestroyed(this.destroy))
+      .subscribe(() => this.suggestNextDue());
+  }
+
+  /** Fills the next due date / meter from the maintenance type's default interval, unless the user entered them. */
+  private suggestNextDue(): void {
+    const v = this.form.getRawValue();
+    const t = this.types.find(x => x.id === v.maintenanceTypeId);
+    const interval = this.meterType() === 'Kilometers' ? t?.defaultIntervalKm : t?.defaultIntervalHours;
+    const start = fromIso(v.maintenanceDate);
+    if (start && t?.defaultIntervalDays) start.setDate(start.getDate() + t.defaultIntervalDays);
+    const date = t?.defaultIntervalDays && start ? toIso(start) : null;
+    const meter = interval && v.meterReading !== null && `${v.meterReading}` !== '' ? Number(v.meterReading) + interval : null;
+    for (const [key, value] of [['nextDueDate', date], ['nextDueMeter', meter]] as const) {
+      const ctrl = this.form.controls[key];
+      if (ctrl.value === null || ctrl.value === '' || ctrl.value === this.suggested[key]) {
+        ctrl.setValue(value as never);
+        this.suggested[key] = value as never;
+      }
+    }
   }
 
   equipmentPicked(e: { id: number } | null): void { if (e) this.loadEquipment(e.id); }
@@ -139,6 +168,7 @@ export class MaintenanceDialog implements OnInit {
     const e = await this.api.get<EquipmentDto>(`equipment/${id}`);
     this.meterType.set(e.meterType);
     this.lastMeter.set(fmtNumber(e.currentMeterReading));
+    this.suggestNextDue();
   }
 
   async save(): Promise<void> {

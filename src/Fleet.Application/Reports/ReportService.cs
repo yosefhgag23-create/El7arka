@@ -56,6 +56,7 @@ public class ReportService(IAppDbContext db, IClock clock, CostQueryService cost
         new("rental", "مصروفات الإيجار", FinancialGroup, "قيود الإيجار الشهرية للمعدات المؤجرة", ["period", "project", "equipment"]),
         new("overtime", "الوقت الإضافي", FinancialGroup, "ساعات وقيم الوقت الإضافي للسائقين", ["period", "project", "driver", "approval"]),
         new("depreciation", "جدول الإهلاك", FinancialGroup, "الإهلاك ومجمع الإهلاك والقيمة الدفترية (غير نقدي)", ["asOf", "period", "category", "project"]),
+        new("equipment-depreciation-schedule", "جدول الإهلاك الشهري للمعدة", FinancialGroup, "قسط ثابت محسوب يومياً لكل شهر من عمر المعدة — غير نقدي", ["equipment"]),
         new("cost-by-equipment", "التكلفة الإجمالية لكل معدة", FinancialGroup, "التكاليف النقدية والإهلاك لكل معدة", ["period", "project", "ownership"]),
         new("cost-by-project", "التكلفة الإجمالية لكل مشروع", FinancialGroup, "التكاليف النقدية والإهلاك الموزع لكل مشروع", ["period", "ownership"]),
 
@@ -83,6 +84,7 @@ public class ReportService(IAppDbContext db, IClock clock, CostQueryService cost
             "maintenance" => await MaintenanceAsync(f, ct),
             "overtime" => await OvertimeAsync(f, ct),
             "depreciation" => await DepreciationAsync(f, ct),
+            "equipment-depreciation-schedule" => await DepreciationScheduleAsync(f, ct),
             "cost-by-equipment" => await CostByEquipmentAsync(f, ct),
             "cost-by-project" => await CostByProjectAsync(f, ct),
             "fuel-consumption" => await FuelConsumptionAsync(f, ct),
@@ -293,6 +295,32 @@ public class ReportService(IAppDbContext db, IClock clock, CostQueryService cost
             new("صافي القيمة الدفترية", s.TotalBookValue),
             new("إهلاك الفترة", s.TotalPeriodDepreciation),
         ], $"القسط الثابت محسوب يومياً حتى {s.AsOf:dd/MM/yyyy}. الإهلاك تكلفة غير نقدية ولا يدخل ضمن المصروفات النقدية.");
+    }
+
+    private async Task<ReportDocument> DepreciationScheduleAsync(ReportFilter f, CancellationToken ct)
+    {
+        if (f.EquipmentId is not { } id) throw new DomainException("اختر المعدة لعرض جدول الإهلاك", "equipmentId");
+        var p = await db.DepreciationProfiles.AsNoTracking().Where(x => x.EquipmentId == id)
+            .Select(x => new { x.PurchaseDate, x.PurchasePrice, x.ResidualValue, x.UsefulLifeMonths, x.DepreciationStartDate })
+            .FirstOrDefaultAsync(ct) ?? throw new DomainException("لا توجد بيانات إهلاك لهذه المعدة", "equipmentId");
+        var rows = await depreciation.ScheduleAsync(id, ct);
+        var today = clock.Today;
+        var current = rows.LastOrDefault(r => r.PeriodStart <= today);
+        var cols = new List<ReportColumn> { new("#", Integer, Width: 0.4f), new("من", Date), new("إلى", Date),
+            new("إهلاك الفترة", Money, Total: true), new("مجمع الإهلاك", Money), new("القيمة الدفترية", Money) };
+        return Doc([Table(null, cols, rows.Select((r, i) => new object?[]
+            {
+                i + 1, r.PeriodStart, r.PeriodEnd, r.Depreciation, r.Accumulated, r.BookValue,
+            }))],
+            [
+                new("سعر الشراء", p.PurchasePrice),
+                new("القيمة التخريدية", p.ResidualValue),
+                new("العمر الإنتاجي (شهر)", p.UsefulLifeMonths, Integer),
+                new("مجمع الإهلاك حتى اليوم", current?.Accumulated ?? 0m),
+                new("القيمة الدفترية الحالية", current?.BookValue ?? p.PurchasePrice),
+            ],
+            $"تاريخ الشراء {p.PurchaseDate:dd/MM/yyyy} — بداية الإهلاك {p.DepreciationStartDate:dd/MM/yyyy}. قسط ثابت محسوب يومياً، والإهلاك تكلفة غير نقدية.",
+            landscape: false);
     }
 
     private static readonly List<ReportColumn> BreakdownColumns =

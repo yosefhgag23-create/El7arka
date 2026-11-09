@@ -12,7 +12,7 @@ import { problemOf } from '../core/notify.service';
   template: `
     <div class="wrap">
       <form class="card" [formGroup]="form" (ngSubmit)="submit()">
-        <div class="mark">ح</div>
+        <img class="logo" src="brand/logo.png" alt="Tameer Facility Management" />
         <h1>تسجيل الدخول</h1>
         <p class="muted">نظام إدارة حركة المعدات والمشروعات والسائقين</p>
         <mat-form-field>
@@ -33,9 +33,9 @@ import { problemOf } from '../core/notify.service';
   `,
   styles: `
     .wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: var(--bg); }
-    .card { width: 380px; max-width: 100%; padding: 32px; display: flex; flex-direction: column; gap: 12px; }
-    .mark { width: 44px; height: 44px; border-radius: 10px; background: var(--text); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 20px; }
-    h1 { font-size: 20px; margin-top: 8px; }
+    .card { width: 380px; max-width: 100%; padding: 32px; display: flex; flex-direction: column; gap: 12px; border-top: 3px solid var(--brand); }
+    .logo { width: 170px; height: 170px; object-fit: contain; align-self: center; margin: -8px 0 4px; }
+    h1 { font-size: 20px; margin-top: 8px; border-top: 1px solid var(--border); padding-top: 16px; }
     p { margin: 0 0 12px; font-size: 13px; }
     .error { background: var(--danger-bg); color: var(--danger); padding: 10px 12px; border-radius: 6px; font-size: 13px; }
     .full { width: 100%; height: 40px; justify-content: center; margin-top: 4px; }
@@ -57,7 +57,7 @@ export class Login {
     try {
       const { username, password } = this.form.getRawValue();
       const user = await this.auth.login(username, password);
-      this.router.navigateByUrl(user.mustChangePassword ? '/account?force=1' : this.returnUrl() || '/');
+      this.router.navigateByUrl(user.mustChangePassword ? '/change-password' : this.returnUrl() || '/');
     } catch (e) {
       this.error.set(problemOf(e).title ?? 'تعذر تسجيل الدخول');
     } finally { this.busy.set(false); }

@@ -94,7 +94,7 @@ export const SYSTEM_KIND: Record<ExpenseSystemKind, string> = {
     .kinds { padding: 8px; display: flex; flex-direction: column; gap: 2px; }
     .kinds button { text-align: start; border: 0; background: none; padding: 9px 12px; border-radius: 6px; font: inherit; cursor: pointer; color: var(--muted); }
     .kinds button:hover { background: var(--subtle); color: var(--text); }
-    .kinds button.active { background: var(--text); color: var(--surface); }
+    .kinds button.active { background: var(--brand-soft); color: var(--brand-strong); font-weight: 500; }
     .head { display: flex; align-items: center; gap: 12px; padding: 16px; border-bottom: 1px solid var(--border); }
     .head h3 { margin: 0; font-size: 15px; font-weight: 600; }
     .head p { margin: 2px 0 0; }

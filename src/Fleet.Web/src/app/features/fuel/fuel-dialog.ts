@@ -7,13 +7,13 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { ApiService } from '../../core/api.service';
-import { fmtMoney, fmtNumber, todayIso } from '../../core/format';
+import { fmtNumber, todayIso } from '../../core/format';
 import { meterUnit } from '../../core/labels';
 import { LookupsService } from '../../core/lookups.service';
 import { EquipmentDto, FuelListItem } from '../../core/models';
 import { NotifyService } from '../../core/notify.service';
 import { DateField, EntitySelect, FileUpload } from '../../shared/fields';
-import { applyServerErrors, clean, err } from '../../shared/forms';
+import { applyServerErrors, autoFillFromEquipment, clean, err, linkAmounts } from '../../shared/forms';
 
 export interface FuelDialogData { item?: FuelListItem; equipmentId?: number; }
 
@@ -42,13 +42,13 @@ export interface FuelDialogData { item?: FuelListItem; equipmentId?: number; }
           <mat-form-field>
             <mat-label>سعر الوحدة</mat-label>
             <input matInput type="number" formControlName="pricePerUnit" />
-            <mat-hint>أو أدخل الإجمالي فقط</mat-hint>
+            <mat-hint>آخر سعر مسجل — أو أدخل الإجمالي</mat-hint>
             <mat-error>{{ e('pricePerUnit') }}</mat-error>
           </mat-form-field>
           <mat-form-field>
             <mat-label>الإجمالي</mat-label>
-            <input matInput type="number" formControlName="totalAmount" [placeholder]="computedTotal()" />
-            @if (computedTotal()) { <mat-hint>محسوب: {{ computedTotal() }}</mat-hint> }
+            <input matInput type="number" formControlName="totalAmount" />
+            <mat-hint>يُحسب تلقائياً من الكمية × السعر</mat-hint>
             <mat-error>{{ e('totalAmount') }}</mat-error>
           </mat-form-field>
           <mat-form-field>
@@ -59,7 +59,7 @@ export interface FuelDialogData { item?: FuelListItem; equipmentId?: number; }
           </mat-form-field>
           <div class="full"><mat-checkbox formControlName="isFullTank">تفويل كامل (تانك فل) — يُستخدم لحساب معدل الاستهلاك</mat-checkbox></div>
           <app-entity-select kind="drivers" label="السائق (اختياري)" formControlName="driverId" [error]="e('driverId')" />
-          <app-entity-select kind="projects" label="المشروع" formControlName="projectId" hint="يُحدد تلقائياً من تخصيص المعدة في التاريخ" />
+          <app-entity-select kind="projects" label="المشروع" formControlName="projectId" hint="يُملأ تلقائياً من تخصيص المعدة في التاريخ" />
           <mat-form-field><mat-label>المحطة</mat-label><input matInput formControlName="station" /></mat-form-field>
           <mat-form-field><mat-label>ملاحظات</mat-label><input matInput formControlName="notes" /></mat-form-field>
           <div class="full" style="margin-top:8px">
@@ -107,9 +107,10 @@ export class FuelDialog implements OnInit {
   });
   private v = toSignal(this.form.valueChanges, { initialValue: this.form.value });
   unitName = computed(() => this.fuelTypes.find(f => f.id === this.v().fuelTypeId)?.unit ?? this.equipmentFuelUnit());
-  computedTotal = computed(() => {
-    const q = Number(this.v().quantity), p = Number(this.v().pricePerUnit);
-    return q > 0 && p > 0 ? fmtMoney(q * p) : '';
+  private linked = linkAmounts(this.form, { quantity: 'quantity', price: 'pricePerUnit', total: 'totalAmount' });
+  private defaults = autoFillFromEquipment(this.form, {
+    equipment: 'equipmentId', date: 'fuelDate', runNow: !this.i,
+    fill: { projectId: 'projectId', driverId: 'driverId', lastFuelPrice: 'pricePerUnit' },
   });
   e = (k: string) => err(this.form.get(k));
 

@@ -1,34 +1,64 @@
-# Generates the black & white application icon (multi-size .ico) used by the desktop exe and the web favicon.
+# Generates every brand asset from build\brand\logo-source.jpg (logo on a white background):
+#   src\Fleet.Desktop\app.ico + src\Fleet.Web\public\favicon.ico   multi-size icon of the house mark on a white tile
+#   src\Fleet.Web\public\brand\logo.png                              full logo, transparent background
+#   src\Fleet.Web\public\brand\mark.png                              house mark only, transparent background
+#   src\Fleet.Desktop\logo.png                                       full logo for the splash screen
 param(
-    [string[]]$Out = @("$PSScriptRoot\..\src\Fleet.Desktop\app.ico", "$PSScriptRoot\..\src\Fleet.Web\public\favicon.ico")
+    [string]$Source = "$PSScriptRoot\brand\logo-source.jpg",
+    # Bounding box of the house mark inside the source image (x, y, width, height).
+    [int[]]$MarkBox = @(83, 45, 340, 247)
 )
+$ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
+$root = Resolve-Path "$PSScriptRoot\.."
+$src = [System.Drawing.Bitmap]::FromFile((Resolve-Path $Source))
 
-function New-IconPng([int]$size) {
-    $bmp = New-Object System.Drawing.Bitmap $size, $size
+# Near-white pixels become transparent (with a soft edge) so the logo sits on any background.
+function Remove-White([System.Drawing.Bitmap]$bmp) {
+    $out = New-Object System.Drawing.Bitmap $bmp.Width, $bmp.Height, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+    for ($y = 0; $y -lt $bmp.Height; $y++) {
+        for ($x = 0; $x -lt $bmp.Width; $x++) {
+            $c = $bmp.GetPixel($x, $y)
+            $light = [Math]::Min($c.R, [Math]::Min($c.G, $c.B))
+            $a = if ($light -ge 238) { 0 } elseif ($light -le 200) { 255 } else { [int](255 * (238 - $light) / 38) }
+            $out.SetPixel($x, $y, [System.Drawing.Color]::FromArgb($a, $c.R, $c.G, $c.B))
+        }
+    }
+    return $out
+}
+
+function Save-Png([System.Drawing.Image]$img, [string]$path) {
+    $full = Join-Path $root $path
+    New-Item -ItemType Directory -Force (Split-Path $full) | Out-Null
+    $img.Save($full, [System.Drawing.Imaging.ImageFormat]::Png)
+    Write-Host "Wrote $path"
+}
+
+# Square canvas with the mark centered and the given padding ratio.
+function New-Mark([System.Drawing.Image]$clear, [int]$size, [double]$pad, [bool]$tile) {
+    $bmp = New-Object System.Drawing.Bitmap $size, $size, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
     $g = [System.Drawing.Graphics]::FromImage($bmp)
-    $g.SmoothingMode = 'AntiAlias'
-    $g.TextRenderingHint = 'AntiAliasGridFit'
+    $g.SmoothingMode = 'AntiAlias'; $g.InterpolationMode = 'HighQualityBicubic'; $g.PixelOffsetMode = 'HighQuality'
     $g.Clear([System.Drawing.Color]::Transparent)
-
-    $r = [Math]::Max(2, [int]($size * 0.18))
-    $path = New-Object System.Drawing.Drawing2D.GraphicsPath
-    $d = $r * 2; $w = $size - 1
-    $path.AddArc(0, 0, $d, $d, 180, 90)
-    $path.AddArc($w - $d, 0, $d, $d, 270, 90)
-    $path.AddArc($w - $d, $w - $d, $d, $d, 0, 90)
-    $path.AddArc(0, $w - $d, $d, $d, 90, 90)
-    $path.CloseFigure()
-    $g.FillPath([System.Drawing.Brushes]::Black, $path)
-
-    $font = New-Object System.Drawing.Font 'Segoe UI', ([float]($size * 0.95)), ([System.Drawing.FontStyle]::Bold), ([System.Drawing.GraphicsUnit]::Pixel)
-    $fmt = New-Object System.Drawing.StringFormat
-    $fmt.Alignment = 'Center'; $fmt.LineAlignment = 'Center'
-    $fmt.FormatFlags = 'DirectionRightToLeft'
-    $rect = New-Object System.Drawing.RectangleF 0, ([float](-$size * 0.16)), $size, $size
-    $g.DrawString([string][char]0x062D, $font, [System.Drawing.Brushes]::White, $rect, $fmt)
-
+    if ($tile) {
+        $r = [Math]::Max(2, [int]($size * 0.2)); $d = $r * 2; $w = $size - 1
+        $path = New-Object System.Drawing.Drawing2D.GraphicsPath
+        $path.AddArc(0, 0, $d, $d, 180, 90); $path.AddArc($w - $d, 0, $d, $d, 270, 90)
+        $path.AddArc($w - $d, $w - $d, $d, $d, 0, 90); $path.AddArc(0, $w - $d, $d, $d, 90, 90); $path.CloseFigure()
+        $g.FillPath([System.Drawing.Brushes]::White, $path)
+    }
+    $inner = $size * (1 - 2 * $pad)
+    $scale = [Math]::Min($inner / $MarkBox[2], $inner / $MarkBox[3])
+    $w2 = $MarkBox[2] * $scale; $h2 = $MarkBox[3] * $scale
+    $dest = New-Object System.Drawing.RectangleF (($size - $w2) / 2), (($size - $h2) / 2), $w2, $h2
+    $srcRect = New-Object System.Drawing.RectangleF $MarkBox[0], $MarkBox[1], $MarkBox[2], $MarkBox[3]
+    $g.DrawImage($clear, $dest, $srcRect, [System.Drawing.GraphicsUnit]::Pixel)
     $g.Dispose()
+    return $bmp
+}
+
+function Get-IconFrame([System.Drawing.Bitmap]$bmp) {
+    $size = $bmp.Width
     $ms = New-Object System.IO.MemoryStream
     if ($size -ge 256) {
         $bmp.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)
@@ -49,19 +79,23 @@ function New-IconPng([int]$size) {
         $bw.Write((New-Object byte[] ($maskRow * $size)))
         $bw.Flush()
     }
-    $bmp.Dispose()
     return ,$ms.ToArray()
 }
 
-$sizes = 256, 64, 48, 32, 16
-$images = foreach ($s in $sizes) { ,(New-IconPng $s) }
+$clear = Remove-White $src
+Save-Png $clear 'src\Fleet.Web\public\brand\logo.png'
+Save-Png $clear 'src\Fleet.Desktop\logo.png'
+$mark = New-Mark $clear 256 0.04 $false
+Save-Png $mark 'src\Fleet.Web\public\brand\mark.png'
 
+$sizes = 256, 64, 48, 32, 16
+$frames = foreach ($s in $sizes) { ,(Get-IconFrame (New-Mark $clear $s 0.1 $true)) }
 $ms = New-Object System.IO.MemoryStream
 $bw = New-Object System.IO.BinaryWriter $ms
 $bw.Write([UInt16]0); $bw.Write([UInt16]1); $bw.Write([UInt16]$sizes.Count)
 $offset = 6 + 16 * $sizes.Count
 for ($i = 0; $i -lt $sizes.Count; $i++) {
-    $s = $sizes[$i]; $len = $images[$i].Length
+    $s = $sizes[$i]; $len = $frames[$i].Length
     $bw.Write([byte]($(if ($s -ge 256) { 0 } else { $s })))
     $bw.Write([byte]($(if ($s -ge 256) { 0 } else { $s })))
     $bw.Write([byte]0); $bw.Write([byte]0)
@@ -69,9 +103,10 @@ for ($i = 0; $i -lt $sizes.Count; $i++) {
     $bw.Write([UInt32]$len); $bw.Write([UInt32]$offset)
     $offset += $len
 }
-foreach ($img in $images) { $bw.Write($img) }
+foreach ($f in $frames) { $bw.Write($f) }
 $bw.Flush()
-foreach ($o in $Out) {
-    [System.IO.File]::WriteAllBytes([System.IO.Path]::GetFullPath($o), $ms.ToArray())
+foreach ($o in 'src\Fleet.Desktop\app.ico', 'src\Fleet.Web\public\favicon.ico') {
+    [System.IO.File]::WriteAllBytes((Join-Path $root $o), $ms.ToArray())
     Write-Host "Wrote $o"
 }
+$src.Dispose()

@@ -20,10 +20,10 @@ import { PageHeader } from '../../shared/ui';
   selector: 'app-equipment-form',
   imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule, DateField, PageHeader, RouterLink],
   template: `
-    <div class="page">
+    <div class="page form-page">
       <app-page-header [title]="id() ? 'تعديل معدة' : 'معدة جديدة'"
         [crumbs]="[{ label: 'المعدات', link: '/equipment' }, { label: id() ? 'تعديل' : 'جديدة' }]" />
-      <form class="card" style="max-width:1000px" [formGroup]="form" (ngSubmit)="save()">
+      <form class="card" [formGroup]="form" (ngSubmit)="save()">
         <div class="card-body">
           <div class="form-grid cols-3">
             <div class="form-section-title">البيانات الأساسية</div>

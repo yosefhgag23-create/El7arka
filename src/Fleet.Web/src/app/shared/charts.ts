@@ -4,7 +4,8 @@ import type { EChartsCoreOption } from 'echarts/core';
 import { fmtMoney, fmtNumber } from '../core/format';
 import { EmptyState } from './ui';
 
-export const PALETTE = ['#18181b', '#71717a', '#a1a1aa', '#d4d4d8', '#15803d', '#b45309', '#1d4ed8', '#b91c1c', '#0f766e', '#7c3aed'];
+export const PALETTE = ['#ea580c', '#18181b', '#a1a1aa', '#fdba74', '#71717a', '#15803d', '#1d4ed8', '#b91c1c', '#0f766e', '#7c3aed'];
+export const BRAND = PALETTE[0];
 const FONT = "'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, sans-serif";
 const MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
 

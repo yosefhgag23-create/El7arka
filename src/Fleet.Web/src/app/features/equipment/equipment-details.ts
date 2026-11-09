@@ -14,6 +14,7 @@ import {
 import { NotifyService } from '../../core/notify.service';
 import { CostCharts, CostSummary } from '../../shared/cost-summary';
 import { CellDef, Column, DataTable } from '../../shared/data-table';
+import { ExportButtons } from '../../shared/export';
 import { Period, PeriodFilter } from '../../shared/fields';
 import { Badge, EmptyState, PageHeader } from '../../shared/ui';
 import { DriverAssignDialog, DriverEndDialog, TransferDialog, openDialog } from '../assignments/dialogs';
@@ -33,7 +34,7 @@ type Tab = 'overview' | 'fuel' | 'maintenance' | 'expenses' | 'assignments' | 'd
   selector: 'app-equipment-details',
   imports: [
     PageHeader, Badge, EmptyState, RouterLink, MatMenuModule, MatTooltipModule, DataTable, CellDef, CostSummary, CostCharts, PeriodFilter,
-    DatePipe, MoneyPipe, NumPipe, FuelRecords, FuelConsumption, MaintenanceRecords, RemindersTable, ExpenseRecords,
+    DatePipe, MoneyPipe, NumPipe, FuelRecords, FuelConsumption, MaintenanceRecords, RemindersTable, ExpenseRecords, ExportButtons,
   ],
   template: `
     <div class="page">
@@ -240,7 +241,8 @@ type Tab = 'overview' | 'fuel' | 'maintenance' | 'expenses' | 'assignments' | 'd
           }
           @case ('depreciation') {
             <div class="card">
-              <div class="card-header"><h3>جدول الإهلاك الشهري</h3><span class="sub">قسط ثابت محسوب يومياً — غير نقدي</span></div>
+              <div class="card-header"><h3>جدول الإهلاك الشهري</h3><span class="sub">قسط ثابت محسوب يومياً — غير نقدي</span>
+                <span class="spacer"></span><app-export report="equipment-depreciation-schedule" [query]="{ equipmentId: e.id }" /></div>
               <app-data-table [columns]="depCols" [rows]="schedule()" [paged]="false" [loading]="loading()" maxHeight="560px" [trackBy]="trackDep" emptyTitle="لا يوجد جدول إهلاك" />
             </div>
           }

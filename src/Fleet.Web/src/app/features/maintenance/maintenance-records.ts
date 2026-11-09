@@ -1,4 +1,4 @@
-import { Component, OnInit, booleanAttribute, inject, input } from '@angular/core';
+import { Component, OnInit, booleanAttribute, computed, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -8,12 +8,13 @@ import { MaintenanceListItem, PagedResult } from '../../core/models';
 import { NotifyService } from '../../core/notify.service';
 import { CellDef, Column, DataTable, ListState } from '../../shared/data-table';
 import { FilterSelect, Period, PeriodFilter, SearchBox } from '../../shared/fields';
+import { ExportButtons } from '../../shared/export';
 import { openDialog } from '../assignments/dialogs';
 import { MaintenanceDialog } from './maintenance-dialog';
 
 @Component({
   selector: 'app-maintenance-records',
-  imports: [DataTable, CellDef, SearchBox, FilterSelect, PeriodFilter, RouterLink, MatTooltipModule],
+  imports: [DataTable, CellDef, SearchBox, FilterSelect, PeriodFilter, RouterLink, MatTooltipModule, ExportButtons],
   template: `
     <div class="card">
       <div class="filters">
@@ -21,6 +22,7 @@ import { MaintenanceDialog } from './maintenance-dialog';
         <app-filter-select placeholder="كل الأنواع" numeric [options]="types" [value]="list.query().maintenanceTypeId" (valueChange)="list.patch({ maintenanceTypeId: $event })" />
         <app-period [from]="list.query().from" [to]="list.query().to" (change)="setPeriod($event)" />
         <span class="spacer"></span>
+        <app-export report="maintenance" [query]="exportQuery()" />
         <button class="btn primary" (click)="add()"><span class="material-symbols-outlined">add</span>تسجيل صيانة</button>
       </div>
       <app-data-table [columns]="cols" [rows]="list.rows()" [total]="list.total()" [loading]="list.loading()"
@@ -78,6 +80,7 @@ export class MaintenanceRecords implements OnInit {
   }
 
   setPeriod(p: Period): void { this.list.patch({ from: p.from, to: p.to }); }
+  exportQuery = computed(() => ({ from: this.list.query().from, to: this.list.query().to, ...this.fixed() }));
   async add(): Promise<void> { if (await openDialog(this.dialog, MaintenanceDialog, { equipmentId: this.fixed()['equipmentId'] }, '760px')) this.list.load(); }
   async edit(r: MaintenanceListItem): Promise<void> { if (await openDialog(this.dialog, MaintenanceDialog, { item: r }, '760px')) this.list.load(); }
   async remove(r: MaintenanceListItem): Promise<void> {

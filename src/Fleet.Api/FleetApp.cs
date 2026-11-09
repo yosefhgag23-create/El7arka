@@ -82,7 +82,7 @@ public static class FleetApp
         app.UseSerilogRequestLogging(o => o.GetLevel = (ctx, _, ex) =>
             ex != null || ctx.Response.StatusCode >= 500 ? Serilog.Events.LogEventLevel.Error : Serilog.Events.LogEventLevel.Debug);
         app.UseDefaultFiles();
-        app.UseStaticFiles();
+        app.UseStaticFiles(StaticFiles);
         if (app.Environment.IsDevelopment())
         {
             app.UseSwaggerUI(o =>
@@ -104,9 +104,19 @@ public static class FleetApp
         app.MapOperations();
         app.MapReports();
         app.MapBackups();
-        app.MapFallbackToFile("index.html").AllowAnonymous();
+        app.MapFallbackToFile("index.html", StaticFiles).AllowAnonymous();
         return app;
     }
+
+    // index.html must always be revalidated, otherwise an updated install keeps loading the previous UI bundles.
+    private static readonly StaticFileOptions StaticFiles = new()
+    {
+        OnPrepareResponse = ctx =>
+        {
+            if (ctx.File.Name.Equals("index.html", StringComparison.OrdinalIgnoreCase))
+                ctx.Context.Response.Headers.CacheControl = "no-cache, no-store, must-revalidate";
+        },
+    };
 
     /// <summary>Migrates/seeds the database, adds development sample data when enabled, and posts due rental accruals.</summary>
     public static async Task InitializeAsync(WebApplication app)

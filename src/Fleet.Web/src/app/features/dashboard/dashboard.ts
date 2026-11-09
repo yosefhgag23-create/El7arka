@@ -6,7 +6,7 @@ import { DUE_STATUS, EQUIPMENT_STATUS } from '../../core/labels';
 import { LookupsService } from '../../core/lookups.service';
 import { DashboardDto } from '../../core/models';
 import { NotifyService } from '../../core/notify.service';
-import { Chart, PALETTE, allZero, barChart, donutChart, lineChart, monthLabel } from '../../shared/charts';
+import { BRAND, Chart, PALETTE, allZero, barChart, donutChart, lineChart, monthLabel } from '../../shared/charts';
 import { Badge, EmptyState, PageHeader, StatCard } from '../../shared/ui';
 
 type Preset = 'today' | 'week' | 'month' | 'year' | 'custom';
@@ -134,7 +134,7 @@ type Preset = 'today' | 'week' | 'month' | 'year' | 'custom';
     .presets { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 8px; overflow: hidden; background: var(--surface); }
     .presets button { border: 0; background: none; padding: 0 14px; height: 34px; font: inherit; font-size: 13px; cursor: pointer; color: var(--muted); }
     .presets button + button { border-inline-start: 1px solid var(--border); }
-    .presets button.active { background: var(--text); color: #fff; }
+    .presets button.active { background: var(--brand-soft); color: var(--brand-strong); font-weight: 500; }
     .date { height: 36px; border: 1px solid var(--border-strong); border-radius: 6px; padding: 0 8px; font: inherit; }
     .mini { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
     .mini:hover { border-color: var(--border-strong); }
@@ -216,7 +216,7 @@ export class Dashboard implements OnInit {
   ownershipEmpty = computed(() => allZero((this.d()?.byOwnership ?? []).map(x => x.totalCash + x.depreciation)));
   fuel = computed(() => {
     const f = this.d()?.fuelByMonth ?? [];
-    return lineChart(f.map(x => monthLabel(x.year, x.month)), [{ name: 'الكمية (لتر)', data: f.map(x => x.quantity), color: '#18181b' }], { money: false, area: true });
+    return lineChart(f.map(x => monthLabel(x.year, x.month)), [{ name: 'الكمية (لتر)', data: f.map(x => x.quantity), color: BRAND }], { money: false, area: true });
   });
   maintenanceTrend = computed(() => {
     const m = this.d()?.byMonth ?? [];
@@ -225,7 +225,7 @@ export class Dashboard implements OnInit {
   maintEmpty = computed(() => allZero((this.d()?.byMonth ?? []).map(x => x.maintenance)));
   utilization = computed(() => {
     const u = this.d()?.utilization ?? [];
-    const opt: any = barChart(u.map(x => x.code), [{ name: 'معدل التشغيل %', data: u.map(x => x.utilizationPercent ?? 0), color: '#18181b' }], { money: false, horizontal: true });
+    const opt: any = barChart(u.map(x => x.code), [{ name: 'معدل التشغيل %', data: u.map(x => x.utilizationPercent ?? 0), color: BRAND }], { money: false, horizontal: true });
     opt.xAxis = { ...opt.xAxis, max: 100, axisLabel: { formatter: (v: number) => `${fmtNumber(v)}%`, color: '#71717a' } };
     return opt;
   });

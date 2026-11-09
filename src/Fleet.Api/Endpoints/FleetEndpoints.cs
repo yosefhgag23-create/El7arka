@@ -60,6 +60,8 @@ public static class FleetEndpoints
         var g = app.MapGroup("/api/equipment").WithTags("Equipment");
         g.MapGet("/", ([AsParameters] EquipmentQuery q, EquipmentService s, CancellationToken ct) => s.ListAsync(q, ct));
         g.MapGet("/{id:int}", (int id, EquipmentService s, CancellationToken ct) => s.GetAsync(id, ct));
+        g.MapGet("/{id:int}/entry-defaults", (int id, DateOnly? date, AssignmentLookup l, Fleet.Application.Abstractions.IClock clock, CancellationToken ct) =>
+            l.EntryDefaultsAsync(id, date ?? clock.Today, ct));
         g.MapPost("/", async (EquipmentInput input, EquipmentService s, CancellationToken ct) => Results.Ok(new { id = await s.CreateAsync(input, ct) }));
         g.MapPut("/{id:int}", async (int id, EquipmentInput input, EquipmentService s, CancellationToken ct) =>
         {

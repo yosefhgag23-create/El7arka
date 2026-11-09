@@ -10,7 +10,7 @@ import { LookupsService } from '../../core/lookups.service';
 import { OvertimeListItem } from '../../core/models';
 import { NotifyService } from '../../core/notify.service';
 import { DateField, EntitySelect } from '../../shared/fields';
-import { applyServerErrors, clean, err } from '../../shared/forms';
+import { applyServerErrors, autoFillFromEquipment, clean, err } from '../../shared/forms';
 
 @Component({
   selector: 'app-overtime-dialog',
@@ -23,7 +23,7 @@ import { applyServerErrors, clean, err } from '../../shared/forms';
           <app-entity-select kind="drivers" label="السائق" formControlName="driverId" required [error]="e('driverId')" (selected)="resolveRate()" />
           <app-date-field label="تاريخ العمل" formControlName="workDate" required [error]="e('workDate')" />
           <app-entity-select kind="equipment" label="المعدة (اختياري)" formControlName="equipmentId" />
-          <app-entity-select kind="projects" label="المشروع (اختياري)" formControlName="projectId" hint="يُحدد من تخصيص المعدة إن تُرك فارغاً" />
+          <app-entity-select kind="projects" label="المشروع (اختياري)" formControlName="projectId" hint="يُملأ تلقائياً من تخصيص المعدة في التاريخ" />
           <mat-form-field>
             <mat-label>ساعات العمل العادية</mat-label>
             <input matInput type="number" formControlName="normalHours" />
@@ -36,7 +36,7 @@ import { applyServerErrors, clean, err } from '../../shared/forms';
           </mat-form-field>
           <mat-form-field>
             <mat-label>سعر الساعة</mat-label>
-            <input matInput type="number" formControlName="hourlyRate" [placeholder]="resolved()?.toString() ?? ''" />
+            <input matInput type="number" formControlName="hourlyRate" />
             <mat-hint>{{ rateHint() }}</mat-hint>
             <mat-error>{{ e('hourlyRate') }}</mat-error>
           </mat-form-field>
@@ -77,8 +77,13 @@ export class OvertimeDialog implements OnInit {
     const h = Number(this.v().overtimeHours) || 0;
     return rate !== null && rate !== undefined ? fmtMoney(h * Number(rate)) : '—';
   });
-  rateHint = computed(() => this.resolved() !== null ? `السعر المعتمد للتاريخ: ${fmtMoney(this.resolved())} — اتركه فارغاً لاستخدامه` : 'لم يُحدد سعر للسائق في هذا التاريخ');
+  rateHint = computed(() => this.resolved() !== null ? `السعر المعتمد للسائق في التاريخ: ${fmtMoney(this.resolved())}` : 'لم يُحدد سعر للسائق في هذا التاريخ');
   e = (k: string) => err(this.form.get(k));
+  private defaults = autoFillFromEquipment(this.form, {
+    equipment: 'equipmentId', date: 'workDate', fill: { projectId: 'projectId' }, runNow: !this.i,
+  });
+  /** Rate last filled in automatically; the field is only replaced while it still holds that value. */
+  private filledRate: number | null = null;
 
   ngOnInit(): void {
     this.resolveRate();
@@ -91,6 +96,11 @@ export class OvertimeDialog implements OnInit {
       if (!driverId || !workDate) { this.resolved.set(null); return; }
       try { this.resolved.set((await this.api.get<{ rate: number | null }>('overtime/resolve-rate', { driverId, date: workDate })).rate); }
       catch { this.resolved.set(null); }
+      const rate = this.form.controls.hourlyRate;
+      if (this.resolved() !== null && (rate.value === null || `${rate.value}` === '' || rate.value === this.filledRate)) {
+        rate.setValue(this.resolved());
+        this.filledRate = this.resolved();
+      }
     });
   }
 

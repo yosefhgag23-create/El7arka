@@ -1,12 +1,18 @@
 import { inject } from '@angular/core';
 import { Routes } from '@angular/router';
-import { adminGuard, authGuard } from './core/auth.service';
+import { adminGuard, authGuard, mustChangePasswordGuard } from './core/auth.service';
 import { LookupsService } from './core/lookups.service';
 import { Login } from './layout/login';
 import { Shell } from './layout/shell';
 
 export const routes: Routes = [
   { path: 'login', component: Login, title: 'تسجيل الدخول' },
+  {
+    path: 'change-password',
+    canActivate: [mustChangePasswordGuard],
+    loadComponent: () => import('./layout/force-password').then(m => m.ForcePassword),
+    title: 'تعيين كلمة مرور جديدة',
+  },
   {
     path: '',
     component: Shell,

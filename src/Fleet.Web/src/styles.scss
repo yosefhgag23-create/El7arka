@@ -18,11 +18,17 @@
   --text-2: #3f3f46;
   --muted: #71717a;
   --faint: #a1a1aa;
-  --accent: #18181b;
+  /* Brand orange: used sparingly for primary actions, active/selected states, focus and small highlights. */
+  --brand: #ea580c;
+  --brand-strong: #c2410c;
+  --brand-soft: #fff7ed;
+  --brand-border: #fed7aa;
+  --accent: var(--brand);
   --success: #15803d;
   --success-bg: #f0fdf4;
-  --warning: #b45309;
-  --warning-bg: #fffbeb;
+  /* Warning is yellow-amber so it stays distinguishable from the orange brand. */
+  --warning: #a16207;
+  --warning-bg: #fefce8;
   --danger: #b91c1c;
   --danger-bg: #fef2f2;
   --info: #1d4ed8;
@@ -45,10 +51,10 @@ html {
   ));
 
   /* Neutral, charcoal-accent overrides of the Material system tokens */
-  --mat-sys-primary: #18181b;
+  --mat-sys-primary: #ea580c;
   --mat-sys-on-primary: #ffffff;
-  --mat-sys-primary-container: #f4f4f5;
-  --mat-sys-on-primary-container: #18181b;
+  --mat-sys-primary-container: #fff7ed;
+  --mat-sys-on-primary-container: #9a3412;
   --mat-sys-secondary-container: #f4f4f5;
   --mat-sys-on-secondary-container: #18181b;
   --mat-sys-surface: #ffffff;
@@ -88,7 +94,10 @@ body {
 
 a { color: inherit; text-decoration: none; }
 a.link { color: var(--text); text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
-a.link:hover { text-decoration-color: var(--text); }
+a.link:hover { color: var(--brand-strong); text-decoration-color: var(--brand); }
+
+::selection { background: var(--brand-border); color: var(--text); }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 h1, h2, h3, h4 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
 
@@ -100,9 +109,13 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
 }
 
 .num, .tabular { font-variant-numeric: tabular-nums; direction: ltr; unicode-bidi: isolate; display: inline-block; }
+td.num, th.num { display: table-cell; direction: rtl; }
 
 /* ============ Layout helpers ============ */
 .page { padding: 24px 28px 48px; max-width: 1600px; margin: 0 auto; }
+/* Single-form pages (create/edit): header and form share one centered column. */
+.page.form-page { max-width: 1000px; }
+.page.form-page.narrow { max-width: 560px; }
 .stack { display: flex; flex-direction: column; gap: 16px; }
 .row { display: flex; align-items: center; gap: 12px; }
 .row.wrap { flex-wrap: wrap; }
@@ -162,7 +175,8 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 .btn .material-symbols-outlined { font-size: 18px; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-.btn.primary:hover { background: #27272a; }
+.btn.primary:hover { background: var(--brand-strong); border-color: var(--brand-strong); }
+.btn.primary:disabled { opacity: .45; }
 .btn.danger { color: var(--danger); border-color: #fecaca; }
 .btn.danger:hover { background: var(--danger-bg); }
 .btn.ghost { border-color: transparent; background: transparent; }
@@ -184,6 +198,7 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
 .badge.danger { background: var(--danger-bg); color: var(--danger); border-color: #fecaca; }
 .badge.info { background: var(--info-bg); color: var(--info); border-color: #bfdbfe; }
 .badge.dark { background: var(--text); color: #fff; border-color: var(--text); }
+.badge.brand { background: var(--brand-soft); color: var(--brand-strong); border-color: var(--brand-border); }
 
 /* ============ Tables ============ */
 .table-wrap { overflow-x: auto; }
@@ -239,7 +254,7 @@ mat-form-field { width: 100%; }
   border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap;
 }
 .tabs button:hover { color: var(--text); }
-.tabs button.active { color: var(--text); border-bottom-color: var(--text); }
+.tabs button.active { color: var(--text); border-bottom-color: var(--brand); }
 
 /* Skeleton */
 .skeleton { background: linear-gradient(90deg, var(--subtle) 25%, var(--subtle-2) 37%, var(--subtle) 63%); background-size: 400% 100%; animation: sk 1.2s ease infinite; border-radius: 6px; }
