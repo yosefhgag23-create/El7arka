@@ -58,7 +58,8 @@ public static class FleetEndpoints
     private static void MapEquipment(IEndpointRouteBuilder app)
     {
         var g = app.MapGroup("/api/equipment").WithTags("Equipment");
-        g.MapGet("/", ([AsParameters] EquipmentQuery q, EquipmentService s, CancellationToken ct) => s.ListAsync(q, ct));
+        g.MapGet("/", async ([AsParameters] EquipmentQuery q, EquipmentService s, SettingsService settings, CancellationToken ct) =>
+            await s.ListAsync(q, (await settings.GetEntityAsync(ct)).LicenseExpiryWarningDays, ct));
         g.MapGet("/{id:int}", (int id, EquipmentService s, CancellationToken ct) => s.GetAsync(id, ct));
         g.MapGet("/{id:int}/entry-defaults", (int id, DateOnly? date, AssignmentLookup l, Fleet.Application.Abstractions.IClock clock, CancellationToken ct) =>
             l.EntryDefaultsAsync(id, date ?? clock.Today, ct));

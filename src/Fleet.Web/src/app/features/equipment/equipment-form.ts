@@ -12,13 +12,18 @@ import { METER_TYPE, OWNERSHIP, options } from '../../core/labels';
 import { LookupsService } from '../../core/lookups.service';
 import { EquipmentDto, MeterType, OwnershipType } from '../../core/models';
 import { NotifyService } from '../../core/notify.service';
-import { DateField } from '../../shared/fields';
+import { DateField, FileUpload } from '../../shared/fields';
 import { applyServerErrors, err } from '../../shared/forms';
 import { PageHeader } from '../../shared/ui';
 
 @Component({
   selector: 'app-equipment-form',
-  imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule, DateField, PageHeader, RouterLink],
+  imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule, DateField, FileUpload, PageHeader, RouterLink],
+  styles: `
+    .license-state { display: flex; align-items: center; gap: 6px; min-height: 56px; font-size: 13px; }
+    .license-state .state { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+    .license-state .material-symbols-outlined { font-size: 20px; }
+  `,
   template: `
     <div class="page form-page">
       <app-page-header [title]="id() ? 'تعديل معدة' : 'معدة جديدة'"
@@ -102,6 +107,26 @@ import { PageHeader } from '../../shared/ui';
               <input matInput formControlName="notes" />
             </mat-form-field>
 
+            <div class="form-section-title">رخصة المعدة</div>
+            <mat-form-field>
+              <mat-label>رقم الرخصة</mat-label>
+              <input matInput formControlName="licenseNumber" />
+              <mat-error>{{ e('licenseNumber') }}</mat-error>
+            </mat-form-field>
+            <app-date-field label="تاريخ انتهاء الرخصة" formControlName="licenseExpiryDate" [error]="e('licenseExpiryDate')" />
+            <div class="license-state">
+              @if (licenseDays(); as d) {
+                <span class="state" [class.text-danger]="d.days < 0" [class.text-warning]="d.days >= 0 && d.days <= d.warn" [class.text-success]="d.days > d.warn">
+                  <span class="material-symbols-outlined">{{ d.days < 0 ? 'error' : d.days <= d.warn ? 'schedule' : 'verified' }}</span>
+                  {{ d.days < 0 ? 'منتهية منذ ' + (-d.days) + ' يوم' : d.days === 0 ? 'تنتهي اليوم' : (d.days <= d.warn ? 'تنتهي قريباً — باقي ' : 'سارية — باقي ') + d.days + ' يوم' }}
+                </span>
+              } @else { <span class="muted small">سيتم التنبيه قبل انتهاء الرخصة حسب عدد الأيام المحدد في الإعدادات</span> }
+            </div>
+            <div class="full">
+              <app-file-upload label="صورة الرخصة (اختياري)" ownerType="EquipmentLicense" [current]="form.value.licenseAttachmentId"
+                (uploaded)="form.controls.licenseAttachmentId.setValue($event)" />
+            </div>
+
             @if (ownership() === 'Owned') {
               <div class="form-section-title">
                 <mat-checkbox [checked]="hasDep()" (change)="toggleDep($event.checked)">بيانات الشراء والإهلاك (القسط الثابت)</mat-checkbox>
@@ -179,7 +204,19 @@ export class EquipmentForm implements OnInit {
     meterType: ['Kilometers' as MeterType],
     initialMeterReading: [0 as number | null, [Validators.required, Validators.min(0)]],
     notes: [''],
+    licenseNumber: [''],
+    licenseExpiryDate: [null as string | null],
+    licenseAttachmentId: [null as number | null],
     depreciation: this.dep,
+  });
+
+  private warnDays = computed(() => this.lookups.settings()?.licenseExpiryWarningDays ?? 30);
+  private expiry = toSignal(this.form.controls.licenseExpiryDate.valueChanges, { initialValue: null as string | null });
+  licenseDays = computed(() => {
+    const d = this.expiry();
+    if (!d) return null;
+    const days = Math.round((Date.parse(d) - Date.parse(todayIso())) / 86_400_000);
+    return { days, warn: this.warnDays() };
   });
 
   ownership = toSignal(this.form.controls.ownership.valueChanges, { initialValue: 'Owned' as OwnershipType });
@@ -205,6 +242,7 @@ export class EquipmentForm implements OnInit {
       code: x.code, name: x.name, plateNumber: x.plateNumber ?? '', chassisNumber: x.chassisNumber ?? '', categoryId: x.categoryId,
       manufacturer: x.manufacturer ?? '', model: x.model ?? '', manufactureYear: x.manufactureYear ?? null, fuelTypeId: x.fuelTypeId,
       ownership: x.ownership, meterType: x.meterType, initialMeterReading: x.initialMeterReading, notes: x.notes ?? '',
+      licenseNumber: x.licenseNumber ?? '', licenseExpiryDate: x.licenseExpiryDate ?? null, licenseAttachmentId: x.licenseAttachmentId ?? null,
     });
     if (x.depreciation) {
       this.toggleDep(true);
@@ -236,7 +274,7 @@ export class EquipmentForm implements OnInit {
     const body = {
       ...v,
       plateNumber: v.plateNumber || null, chassisNumber: v.chassisNumber || null, manufacturer: v.manufacturer || null, model: v.model || null,
-      notes: v.notes || null,
+      notes: v.notes || null, licenseNumber: v.licenseNumber || null, licenseExpiryDate: v.licenseExpiryDate || null,
       depreciation: v.ownership === 'Owned' && this.hasDep() ? { ...v.depreciation, residualValue: v.depreciation.residualValue ?? 0 } : null,
     };
     try {

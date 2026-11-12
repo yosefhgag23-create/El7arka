@@ -40,6 +40,11 @@ export function fromIso(iso: string | null | undefined): Date | null {
 }
 
 export const todayIso = () => toIso(new Date())!;
+export function addDaysIso(iso: string, days: number): string {
+  const d = fromIso(iso)!;
+  d.setDate(d.getDate() + days);
+  return toIso(d)!;
+}
 
 export function fileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;

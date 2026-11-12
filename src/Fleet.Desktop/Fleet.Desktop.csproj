@@ -13,7 +13,7 @@
     <Product>El7arka</Product>
     <Company>El7arka</Company>
     <Description>نظام إدارة حركة المعدات والمشروعات والسائقين</Description>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <SatelliteResourceLanguages>en;ar</SatelliteResourceLanguages>
     <!-- The API project is an executable referenced as a library; it is always published together with this host. -->
     <ValidateExecutableReferencesMatchSelfContained>false</ValidateExecutableReferencesMatchSelfContained>

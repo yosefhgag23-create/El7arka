@@ -30,7 +30,7 @@ public enum UserRole { Admin = 1, DataEntry = 2 }
 
 public enum AttachmentOwnerType
 {
-    None = 0, EquipmentImage = 1, Driver = 2, Expense = 3, Fuel = 4, Maintenance = 5, RentalContract = 6, CompanyLogo = 7
+    None = 0, EquipmentImage = 1, Driver = 2, Expense = 3, Fuel = 4, Maintenance = 5, RentalContract = 6, CompanyLogo = 7, EquipmentLicense = 8
 }
 
 public enum MaintenanceDueStatus { Ok = 1, DueSoon = 2, Overdue = 3 }

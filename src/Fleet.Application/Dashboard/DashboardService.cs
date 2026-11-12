@@ -12,7 +12,7 @@ namespace Fleet.Application.Dashboard;
 
 public record DashboardCounts(int TotalEquipment, int Owned, int Rented, int Available, int Operating, int UnderMaintenance, int OutOfService,
     int Inactive, int Unassigned, int ActiveProjects, int TotalProjects, int ActiveDrivers, int MaintenanceOverdue, int MaintenanceDueSoon,
-    int LicensesExpiring);
+    int LicensesExpiring, int EquipmentLicensesExpiring);
 
 public record FuelMonth(int Year, int Month, decimal Quantity, decimal Amount);
 
@@ -20,12 +20,14 @@ public record UtilizationRow(int EquipmentId, string Code, string Name, decimal?
 
 public record LicenseAlert(int DriverId, string FullName, string? Phone, DateOnly ExpiryDate, int DaysRemaining);
 
+public record EquipmentLicenseAlert(int EquipmentId, string Code, string Name, string? LicenseNumber, DateOnly ExpiryDate, int DaysRemaining);
+
 public record OwnershipCost(OwnershipType Ownership, decimal TotalCash, decimal Depreciation);
 
 public record DashboardDto(DateOnly From, DateOnly To, DashboardCounts Counts, CostTotals Totals, List<MonthlyTotal> ByMonth,
     List<CategoryTotal> ByCategory, List<CostBreakdownRow> TopProjects, List<CostBreakdownRow> TopEquipment, List<FuelMonth> FuelByMonth,
     decimal? FleetUtilization, List<UtilizationRow> Utilization, List<OwnershipCost> ByOwnership, List<MaintenanceReminder> Maintenance,
-    List<LicenseAlert> Licenses, List<TransferListItem> RecentTransfers);
+    List<LicenseAlert> Licenses, List<TransferListItem> RecentTransfers, List<EquipmentLicenseAlert> EquipmentLicenses);
 
 /// <summary>All dashboard figures come from the same services used by reports, so totals always match.</summary>
 public class DashboardService(IAppDbContext db, IClock clock, CostQueryService costs, MaintenanceService maintenance,
@@ -55,6 +57,14 @@ public class DashboardService(IAppDbContext db, IClock clock, CostQueryService c
                 .ToListAsync(ct))
             .Select(d => new LicenseAlert(d.Id, d.FullName, d.Phone, d.LicenseExpiryDate!.Value, d.LicenseExpiryDate.Value.DayNumber - today.DayNumber))
             .ToList();
+        var equipmentLicenses = (await db.Equipment.AsNoTracking()
+                .Where(e => e.IsActive && e.LicenseExpiryDate != null && e.LicenseExpiryDate <= licenseLimit)
+                .OrderBy(e => e.LicenseExpiryDate)
+                .Select(e => new { e.Id, e.Code, e.Name, e.LicenseNumber, e.LicenseExpiryDate })
+                .ToListAsync(ct))
+            .Select(e => new EquipmentLicenseAlert(e.Id, e.Code, e.Name, e.LicenseNumber, e.LicenseExpiryDate!.Value,
+                e.LicenseExpiryDate.Value.DayNumber - today.DayNumber))
+            .ToList();
 
         var counts = new DashboardCounts(
             active.Count,
@@ -71,7 +81,8 @@ public class DashboardService(IAppDbContext db, IClock clock, CostQueryService c
             await db.Drivers.CountAsync(d => d.IsActive && d.EmploymentStatus == EmploymentStatus.Active, ct),
             reminders.Count(r => r.Status == MaintenanceDueStatus.Overdue),
             reminders.Count(r => r.Status == MaintenanceDueStatus.DueSoon),
-            licenses.Count);
+            licenses.Count,
+            equipmentLicenses.Count);
 
         var fuel = (await db.FuelTransactions.AsNoTracking()
                 .Where(f => f.FuelDate >= start && f.FuelDate <= end)
@@ -97,7 +108,8 @@ public class DashboardService(IAppDbContext db, IClock clock, CostQueryService c
             [new OwnershipCost(OwnershipType.Owned, owned.TotalCash, owned.Depreciation), new OwnershipCost(OwnershipType.Rented, rented.TotalCash, 0)],
             reminders.OrderBy(r => r.Status == MaintenanceDueStatus.Overdue ? 0 : 1).ThenBy(r => r.DaysRemaining ?? int.MaxValue).Take(10).ToList(),
             licenses.Take(10).ToList(),
-            (await assignments.TransfersAsync(new TransferQuery { PageSize = 6 }, ct)).Items.ToList());
+            (await assignments.TransfersAsync(new TransferQuery { PageSize = 6 }, ct)).Items.ToList(),
+            equipmentLicenses.Take(10).ToList());
     }
 
     private static DateOnly Min(DateOnly a, DateOnly b) => a < b ? a : b;

@@ -103,15 +103,24 @@ type Preset = 'today' | 'week' | 'month' | 'year' | 'custom';
           </div>
         </div>
         <div class="card">
-          <div class="card-header"><h3>رخص منتهية أو قاربت</h3></div>
+          <div class="card-header"><h3>رخص منتهية أو قاربت</h3>
+            <span class="sub">{{ (c()?.equipmentLicensesExpiring ?? 0) }} معدة • {{ (c()?.licensesExpiring ?? 0) }} سائق</span></div>
           <div class="card-body flush">
+            @for (l of d()?.equipmentLicenses ?? []; track l.equipmentId) {
+              <a class="item" [routerLink]="['/equipment', l.equipmentId]">
+                <span class="material-symbols-outlined" [class.text-danger]="l.daysRemaining < 0" [class.text-warning]="l.daysRemaining >= 0">local_shipping</span>
+                <div class="grow"><strong class="num">{{ l.code }}</strong> {{ l.name }}<div class="muted small">رخصة معدة</div></div>
+                <span class="small num" [class.text-danger]="l.daysRemaining < 0">{{ daysText(l.daysRemaining) }}</span>
+              </a>
+            }
             @for (l of d()?.licenses ?? []; track l.driverId) {
               <a class="item" [routerLink]="['/drivers', l.driverId]">
                 <span class="material-symbols-outlined" [class.text-danger]="l.daysRemaining < 0" [class.text-warning]="l.daysRemaining >= 0">badge</span>
-                <div class="grow">{{ l.fullName }}</div>
-                <span class="small num" [class.text-danger]="l.daysRemaining < 0">{{ l.daysRemaining < 0 ? 'منتهية منذ ' + (-l.daysRemaining) + ' يوم' : 'باقي ' + l.daysRemaining + ' يوم' }}</span>
+                <div class="grow">{{ l.fullName }}<div class="muted small">رخصة قيادة</div></div>
+                <span class="small num" [class.text-danger]="l.daysRemaining < 0">{{ daysText(l.daysRemaining) }}</span>
               </a>
-            } @empty { <app-empty icon="verified" title="كل الرخص سارية" /> }
+            }
+            @if (!d()?.equipmentLicenses?.length && !d()?.licenses?.length) { <app-empty icon="verified" title="كل الرخص سارية" /> }
           </div>
         </div>
 
@@ -161,6 +170,7 @@ export class Dashboard implements OnInit {
   from = signal('');
   to = signal('');
   dueMeta = DUE_STATUS;
+  daysText = (n: number) => n < 0 ? `منتهية منذ ${-n} يوم` : n === 0 ? 'تنتهي اليوم' : `باقي ${n} يوم`;
   presets: { id: Preset; label: string }[] = [
     { id: 'today', label: 'اليوم' }, { id: 'week', label: 'الأسبوع' }, { id: 'month', label: 'الشهر' }, { id: 'year', label: 'السنة' }, { id: 'custom', label: 'مخصص' },
   ];

@@ -20,11 +20,13 @@ public record EquipmentQuery : PageQuery
     public int? FuelTypeId { get; init; }
     public bool? Unassigned { get; init; }
     public bool? IncludeInactive { get; init; }
+    public bool? LicenseExpiring { get; init; }
 }
 
 public record EquipmentListItem(int Id, string Code, string Name, string? PlateNumber, string? ChassisNumber, int CategoryId, string CategoryName,
     string? Manufacturer, string? Model, int? ManufactureYear, OwnershipType Ownership, EquipmentStatus Status, MeterType MeterType,
-    decimal CurrentMeterReading, int? CurrentProjectId, string? CurrentProjectName, int? MainImageId, string? FuelTypeName, bool IsActive);
+    decimal CurrentMeterReading, int? CurrentProjectId, string? CurrentProjectName, int? MainImageId, string? FuelTypeName, bool IsActive,
+    DateOnly? LicenseExpiryDate);
 
 public record DepreciationProfileDto(DateOnly PurchaseDate, decimal PurchasePrice, decimal ResidualValue, int UsefulLifeMonths,
     DepreciationMethod Method, DateOnly DepreciationStartDate, DateOnly? DisposalDate);
@@ -38,11 +40,13 @@ public record EquipmentDto(int Id, string Code, string Name, string? PlateNumber
     string? Manufacturer, string? Model, int? ManufactureYear, int FuelTypeId, string FuelTypeName, string FuelUnit, OwnershipType Ownership,
     MeterType MeterType, EquipmentStatus Status, decimal InitialMeterReading, decimal CurrentMeterReading, int? MainImageId,
     List<int> ImageIds, string? Notes, bool IsActive, int? CurrentProjectId, string? CurrentProjectName, DateOnly? CurrentProjectSince,
-    DepreciationProfileDto? Depreciation, List<RentalContractDto> RentalContracts, List<CurrentDriverDto> CurrentDrivers, DateTime CreatedAt);
+    DepreciationProfileDto? Depreciation, List<RentalContractDto> RentalContracts, List<CurrentDriverDto> CurrentDrivers, DateTime CreatedAt,
+    string? LicenseNumber, DateOnly? LicenseExpiryDate, int? LicenseAttachmentId);
 
 public record EquipmentInput(string Code, string Name, string? PlateNumber, string? ChassisNumber, int CategoryId, string? Manufacturer,
     string? Model, int? ManufactureYear, int FuelTypeId, OwnershipType Ownership, MeterType MeterType, decimal InitialMeterReading,
-    string? Notes, DepreciationProfileDto? Depreciation);
+    string? Notes, DepreciationProfileDto? Depreciation,
+    string? LicenseNumber = null, DateOnly? LicenseExpiryDate = null, int? LicenseAttachmentId = null);
 
 public record StatusChangeInput(EquipmentStatus Status, DateOnly Date, string? Reason);
 
@@ -66,6 +70,7 @@ public class EquipmentInputValidator : AbstractValidator<EquipmentInput>
             .WithMessage("سنة صنع غير صالحة");
         RuleFor(x => x.InitialMeterReading).GreaterThanOrEqualTo(0).WithMessage("قراءة العداد لا يمكن أن تكون سالبة");
         RuleFor(x => x.Notes).OptionalText(2000);
+        RuleFor(x => x.LicenseNumber).OptionalText(50);
         RuleFor(x => x.Depreciation).Null().When(x => x.Ownership == OwnershipType.Rented)
             .WithMessage("المعدات المؤجرة لا يتم إهلاكها");
         RuleFor(x => x.Depreciation!).SetValidator(new DepreciationProfileValidator()).When(x => x.Depreciation != null);
@@ -99,11 +104,13 @@ public class EquipmentService(IAppDbContext db, IValidator<EquipmentInput> valid
         ["ownership"] = e => e.Ownership,
         ["currentMeterReading"] = e => e.CurrentMeterReading,
         ["manufactureYear"] = e => e.ManufactureYear,
+        ["licenseExpiryDate"] = e => e.LicenseExpiryDate,
     };
 
-    public Task<PagedResult<EquipmentListItem>> ListAsync(EquipmentQuery q, CancellationToken ct = default)
+    public Task<PagedResult<EquipmentListItem>> ListAsync(EquipmentQuery q, int licenseWarningDays = 30, CancellationToken ct = default)
     {
         var search = Text.Clean(q.Search);
+        var warn = clock.Today.AddDays(licenseWarningDays);
         var query = db.Equipment.AsNoTracking()
             .WhereIf(q.IncludeInactive != true && q.Status != EquipmentStatus.Inactive, e => e.IsActive)
             .WhereIf(q.CategoryId.HasValue, e => e.CategoryId == q.CategoryId)
@@ -112,6 +119,7 @@ public class EquipmentService(IAppDbContext db, IValidator<EquipmentInput> valid
             .WhereIf(q.FuelTypeId.HasValue, e => e.FuelTypeId == q.FuelTypeId)
             .WhereIf(q.ProjectId.HasValue, e => e.ProjectAssignments.Any(a => a.EndDate == null && a.ProjectId == q.ProjectId))
             .WhereIf(q.Unassigned == true, e => !e.ProjectAssignments.Any(a => a.EndDate == null))
+            .WhereIf(q.LicenseExpiring == true, e => e.LicenseExpiryDate != null && e.LicenseExpiryDate <= warn)
             .WhereIf(search != null, e => e.Name.Contains(search!) || e.Code.Contains(search!)
                 || (e.PlateNumber != null && e.PlateNumber.Contains(search!)) || (e.ChassisNumber != null && e.ChassisNumber.Contains(search!))
                 || (e.Model != null && e.Model.Contains(search!)) || (e.Manufacturer != null && e.Manufacturer.Contains(search!)))
@@ -121,7 +129,7 @@ public class EquipmentService(IAppDbContext db, IValidator<EquipmentInput> valid
             e.Category!.NameAr, e.Manufacturer, e.Model, e.ManufactureYear, e.Ownership, e.Status, e.MeterType, e.CurrentMeterReading,
             e.ProjectAssignments.Where(a => a.EndDate == null).Select(a => (int?)a.ProjectId).FirstOrDefault(),
             e.ProjectAssignments.Where(a => a.EndDate == null).Select(a => a.Project!.Name).FirstOrDefault(),
-            e.MainImageId, e.FuelType!.NameAr, e.IsActive), ct);
+            e.MainImageId, e.FuelType!.NameAr, e.IsActive, e.LicenseExpiryDate), ct);
     }
 
     public async Task<EquipmentDto> GetAsync(int id, CancellationToken ct = default)
@@ -149,7 +157,7 @@ public class EquipmentService(IAppDbContext db, IValidator<EquipmentInput> valid
             dp is null ? null : new DepreciationProfileDto(dp.PurchaseDate, dp.PurchasePrice, dp.ResidualValue, dp.UsefulLifeMonths, dp.Method,
                 dp.DepreciationStartDate, dp.DisposalDate),
             e.RentalContracts.Where(r => !r.IsDeleted).OrderByDescending(r => r.StartDate).Select(ToDto).ToList(),
-            drivers, e.CreatedAt);
+            drivers, e.CreatedAt, e.LicenseNumber, e.LicenseExpiryDate, e.LicenseAttachmentId);
     }
 
     internal static RentalContractDto ToDto(RentalContract r) => new(r.Id, r.ContractNo, r.Lessor, r.LessorPhone, r.StartDate, r.EndDate,
@@ -359,6 +367,9 @@ public class EquipmentService(IAppDbContext db, IValidator<EquipmentInput> valid
         e.Ownership = i.Ownership;
         e.MeterType = i.MeterType;
         e.Notes = Text.Clean(i.Notes);
+        e.LicenseNumber = Text.Clean(i.LicenseNumber);
+        e.LicenseExpiryDate = i.LicenseExpiryDate;
+        e.LicenseAttachmentId = i.LicenseAttachmentId;
     }
 }
 

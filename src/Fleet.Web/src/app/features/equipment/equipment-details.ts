@@ -11,6 +11,7 @@ import {
   AssignmentHistoryItem, CostReport, CurrentDriverDto, DepreciationScheduleRow, DepreciationSummary, DriverAssignmentItem, EquipmentDto, MeterReadingDto,
   PagedResult, RentalContractDto, StatusHistoryDto,
 } from '../../core/models';
+import { LookupsService } from '../../core/lookups.service';
 import { NotifyService } from '../../core/notify.service';
 import { CostCharts, CostSummary } from '../../shared/cost-summary';
 import { CellDef, Column, DataTable } from '../../shared/data-table';
@@ -61,6 +62,15 @@ type Tab = 'overview' | 'fuel' | 'maintenance' | 'expenses' | 'assignments' | 'd
 
         @switch (tab()) {
           @case ('overview') {
+            @if (license(); as l) {
+              @if (l.state !== 'valid') {
+                <div class="notice" [class.danger]="l.state === 'expired'" [class.warning]="l.state === 'soon'" style="margin-bottom:16px">
+                  <strong>تنبيه رخصة المعدة:</strong>
+                  {{ l.state === 'expired' ? 'الرخصة منتهية منذ ' + (-l.days) + ' يوم' : l.days === 0 ? 'الرخصة تنتهي اليوم' : 'الرخصة تنتهي خلال ' + l.days + ' يوم' }}
+                  ({{ e.licenseExpiryDate | d }}) — جدّد الرخصة ثم حدّث التاريخ من «تعديل».
+                </div>
+              }
+            }
             <div class="grid grid-3">
               <div class="card span-2">
                 <div class="card-header"><h3>بيانات المعدة</h3></div>
@@ -75,6 +85,17 @@ type Tab = 'overview' | 'fuel' | 'maintenance' | 'expenses' | 'assignments' | 'd
                   <div><div class="k">نوع العداد</div><div class="v">{{ meterTypeMeta[e.meterType].label }}</div></div>
                   <div><div class="k">العداد الحالي</div><div class="v"><span class="num">{{ e.currentMeterReading | num }}</span> {{ unit() }}</div></div>
                   <div><div class="k">القراءة الابتدائية</div><div class="v"><span class="num">{{ e.initialMeterReading | num }}</span> {{ unit() }}</div></div>
+                  <div><div class="k">رقم الرخصة</div><div class="v num">{{ e.licenseNumber || '—' }}</div></div>
+                  <div><div class="k">انتهاء الرخصة</div>
+                    <div class="v">
+                      @if (license(); as l) {
+                        <span class="num" [class.text-danger]="l.state === 'expired'">{{ e.licenseExpiryDate | d }}</span>
+                        @if (l.state === 'expired') { <app-badge label="منتهية" tone="danger" /> }
+                        @else if (l.state === 'soon') { <app-badge [label]="'باقي ' + l.days + ' يوم'" tone="warning" /> }
+                      } @else { <span class="muted">غير مسجلة</span> }
+                    </div></div>
+                  <div><div class="k">صورة الرخصة</div>
+                    <div class="v">@if (e.licenseAttachmentId) { <a class="link" [href]="url(e.licenseAttachmentId)" target="_blank">عرض</a> } @else { — }</div></div>
                   @if (e.notes) { <div style="grid-column:1/-1"><div class="k">ملاحظات</div><div class="v">{{ e.notes }}</div></div> }
                 </div>
               </div>
@@ -280,6 +301,7 @@ export class EquipmentDetails implements OnInit {
   private notify = inject(NotifyService);
   private dialog = inject(MatDialog);
   private router = inject(Router);
+  private lookups = inject(LookupsService);
   auth = inject(AuthService);
   id = input.required<string>();
   e = signal<EquipmentDto | null>(null);
@@ -315,6 +337,14 @@ export class EquipmentDetails implements OnInit {
     if (e?.depreciation) t.push({ id: 'depreciation', label: 'الإهلاك' });
     t.push({ id: 'costs', label: 'التكاليف' });
     return t;
+  });
+
+  license = computed(() => {
+    const d = this.e()?.licenseExpiryDate;
+    if (!d) return null;
+    const days = Math.round((Date.parse(d) - Date.parse(todayIso())) / 86_400_000);
+    const warn = this.lookups.settings()?.licenseExpiryWarningDays ?? 30;
+    return { days, state: days < 0 ? 'expired' : days <= warn ? 'soon' : 'valid' as 'expired' | 'soon' | 'valid' };
   });
 
   activeContract = computed(() => {

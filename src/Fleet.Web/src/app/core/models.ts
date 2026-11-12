@@ -17,7 +17,7 @@ export type UserRole = 'Admin' | 'DataEntry';
 export type MaintenanceDueStatus = 'Ok' | 'DueSoon' | 'Overdue';
 export type FuelSegmentStatus = 'Valid' | 'NoPreviousFullTank' | 'MissingMeter' | 'NonPositiveDistance' | 'CorrectionInSegment' | 'NotFullTank';
 export type LookupKind = 'EquipmentCategories' | 'FuelTypes' | 'ExpenseCategories' | 'MaintenanceTypes' | 'LicenseTypes';
-export type AttachmentOwnerType = 'None' | 'EquipmentImage' | 'Driver' | 'Expense' | 'Fuel' | 'Maintenance' | 'RentalContract' | 'CompanyLogo';
+export type AttachmentOwnerType = 'None' | 'EquipmentImage' | 'Driver' | 'Expense' | 'Fuel' | 'Maintenance' | 'RentalContract' | 'CompanyLogo' | 'EquipmentLicense';
 
 export interface UserDto { id: Id; username: string; displayName: string; role: UserRole; isActive: boolean; mustChangePassword: boolean; lastLoginAt?: string; }
 
@@ -46,6 +46,7 @@ export interface EquipmentListItem {
   id: Id; code: string; name: string; plateNumber?: string; chassisNumber?: string; categoryId: Id; categoryName: string;
   manufacturer?: string; model?: string; manufactureYear?: number; ownership: OwnershipType; status: EquipmentStatus; meterType: MeterType;
   currentMeterReading: number; currentProjectId?: Id; currentProjectName?: string; mainImageId?: Id; fuelTypeName?: string; isActive: boolean;
+  licenseExpiryDate?: IsoDate;
 }
 export interface DepreciationProfileDto { purchaseDate: IsoDate; purchasePrice: number; residualValue: number; usefulLifeMonths: number; method: 'StraightLine'; depreciationStartDate: IsoDate; disposalDate?: IsoDate; }
 export interface RentalContractDto {
@@ -59,6 +60,7 @@ export interface EquipmentDto {
   ownership: OwnershipType; meterType: MeterType; status: EquipmentStatus; initialMeterReading: number; currentMeterReading: number;
   mainImageId?: Id; imageIds: Id[]; notes?: string; isActive: boolean; currentProjectId?: Id; currentProjectName?: string; currentProjectSince?: IsoDate;
   depreciation?: DepreciationProfileDto; rentalContracts: RentalContractDto[]; currentDrivers: CurrentDriverDto[]; createdAt: string;
+  licenseNumber?: string; licenseExpiryDate?: IsoDate; licenseAttachmentId?: Id;
 }
 export interface StatusHistoryDto { id: Id; status: EquipmentStatus; fromDate: IsoDate; toDate?: IsoDate; reason?: string; createdBy?: string; }
 export interface MeterReadingDto { id: Id; readingDate: IsoDate; value: number; source: MeterReadingSource; sourceId?: Id; isCorrection: boolean; correctionReason?: string; createdBy?: string; }
@@ -136,16 +138,18 @@ export interface CostReport { totals: CostTotals; byCategory: CategoryTotal[]; b
 export interface DashboardCounts {
   totalEquipment: number; owned: number; rented: number; available: number; operating: number; underMaintenance: number; outOfService: number;
   inactive: number; unassigned: number; activeProjects: number; totalProjects: number; activeDrivers: number; maintenanceOverdue: number;
-  maintenanceDueSoon: number; licensesExpiring: number;
+  maintenanceDueSoon: number; licensesExpiring: number; equipmentLicensesExpiring: number;
 }
 export interface FuelMonth { year: number; month: number; quantity: number; amount: number; }
 export interface UtilizationRow { equipmentId: Id; code: string; name: string; utilizationPercent?: number; operatingDays: number; downtimeDays: number; }
 export interface LicenseAlert { driverId: Id; fullName: string; phone?: string; expiryDate: IsoDate; daysRemaining: number; }
+export interface EquipmentLicenseAlert { equipmentId: Id; code: string; name: string; licenseNumber?: string; expiryDate: IsoDate; daysRemaining: number; }
 export interface OwnershipCost { ownership: OwnershipType; totalCash: number; depreciation: number; }
 export interface DashboardDto {
   from: IsoDate; to: IsoDate; counts: DashboardCounts; totals: CostTotals; byMonth: MonthlyTotal[]; byCategory: CategoryTotal[];
   topProjects: CostBreakdownRow[]; topEquipment: CostBreakdownRow[]; fuelByMonth: FuelMonth[]; fleetUtilization?: number;
   utilization: UtilizationRow[]; byOwnership: OwnershipCost[]; maintenance: MaintenanceReminder[]; licenses: LicenseAlert[]; recentTransfers: TransferListItem[];
+  equipmentLicenses: EquipmentLicenseAlert[];
 }
 
 export interface AttachmentDto { id: Id; originalName: string; contentType: string; sizeBytes: number; uploadedAt: string; }

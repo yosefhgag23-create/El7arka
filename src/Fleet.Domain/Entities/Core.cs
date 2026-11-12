@@ -38,6 +38,10 @@ public class Equipment : AuditableEntity
     /// <summary>Denormalized; maintained exclusively by the meter-reading service.</summary>
     public decimal CurrentMeterReading { get; set; }
 
+    public string? LicenseNumber { get; set; }
+    public DateOnly? LicenseExpiryDate { get; set; }
+    public int? LicenseAttachmentId { get; set; }
+
     public int? MainImageId { get; set; }
     public Attachment? MainImage { get; set; }
     public string? Notes { get; set; }

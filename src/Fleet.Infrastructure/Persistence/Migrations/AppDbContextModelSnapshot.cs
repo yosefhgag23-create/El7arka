@@ -451,6 +451,16 @@ namespace Fleet.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("LicenseAttachmentId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateOnly?>("LicenseExpiryDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LicenseNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
                     b.Property<int?>("MainImageId")
                         .HasColumnType("INTEGER");
 
@@ -502,6 +512,8 @@ namespace Fleet.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.HasIndex("FuelTypeId");
+
+                    b.HasIndex("LicenseExpiryDate");
 
                     b.HasIndex("MainImageId");
 

@@ -50,7 +50,7 @@ const REPORT_ICONS: Record<string, string> = {
   'rental': 'key', 'overtime': 'more_time', 'depreciation': 'trending_down', 'equipment-depreciation-schedule': 'calendar_month',
   'cost-by-equipment': 'local_shipping', 'cost-by-project': 'account_balance', 'fuel-consumption': 'speed',
   'meter-readings': 'timer', 'utilization': 'monitoring', 'maintenance-schedule': 'event_upcoming',
-  'driver-assignments': 'badge', 'license-expiry': 'id_card',
+  'driver-assignments': 'badge', 'license-expiry': 'id_card', 'equipment-license-expiry': 'verified_user',
 };
 
 @Component({

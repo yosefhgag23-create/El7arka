@@ -94,6 +94,45 @@ public class ReportTests(ApiFixture fx)
     }
 
     [Fact]
+    public async Task Equipment_license_expiry_is_saved_and_alerted_on_dashboard_list_and_report()
+    {
+        async Task<int> Create(int? expiresInDays) => await _c.PostId("/api/equipment", new
+        {
+            code = "LIC-" + U(), name = "معدة برخصة", plateNumber = "ل ر خ " + U(), categoryId = await Lookup("EquipmentCategories", "Trucks"),
+            fuelTypeId = await Lookup("FuelTypes", "Diesel"), ownership = "Rented", meterType = "Kilometers", initialMeterReading = 0,
+            licenseNumber = expiresInDays is null ? null : "LN-" + U(), licenseExpiryDate = expiresInDays is { } d ? D(-d) : null,
+        });
+        var expired = await Create(-3);
+        var soon = await Create(5);
+        var valid = await Create(400);
+        var none = await Create(null);
+
+        var dto = await _c.Get($"/api/equipment/{soon}");
+        Assert.Equal(D(-5), dto.GetProperty("licenseExpiryDate").GetString());
+        Assert.StartsWith("LN-", dto.GetProperty("licenseNumber").GetString());
+
+        var alerts = (await _c.Get("/api/dashboard")).GetProperty("equipmentLicenses").EnumerateArray()
+            .ToDictionary(a => a.GetProperty("equipmentId").GetInt32(), a => a.GetProperty("daysRemaining").GetInt32());
+        Assert.Equal(-3, alerts[expired]);
+        Assert.Equal(5, alerts[soon]);
+        Assert.DoesNotContain(valid, alerts.Keys);
+        Assert.DoesNotContain(none, alerts.Keys);
+
+        var listed = (await _c.Get("/api/equipment?licenseExpiring=true&pageSize=500")).GetProperty("items").EnumerateArray()
+            .Select(i => i.GetProperty("id").GetInt32()).ToList();
+        Assert.Contains(expired, listed);
+        Assert.Contains(soon, listed);
+        Assert.DoesNotContain(valid, listed);
+
+        var report = await _c.Get("/api/reports/equipment-license-expiry");
+        var states = report.GetProperty("tables")[0].GetProperty("rows").EnumerateArray()
+            .Select(r => r.EnumerateArray().Select(c => c.ValueKind == JsonValueKind.String ? c.GetString() : c.ToString()).ToList()).ToList();
+        Assert.Contains(states, r => r.Contains("منتهية"));
+        Assert.Contains(states, r => r.Contains("تنتهي قريباً"));
+        Assert.Contains(states, r => r.Contains("سارية"));
+    }
+
+    [Fact]
     public async Task Unknown_report_returns_404()
     {
         var res = await _c.GetAsync("/api/reports/does-not-exist");

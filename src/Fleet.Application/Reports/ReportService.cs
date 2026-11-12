@@ -66,6 +66,7 @@ public class ReportService(IAppDbContext db, IClock clock, CostQueryService cost
         new("maintenance-schedule", "جدول الصيانة الدورية", OperationalGroup, "مواعيد الصيانة القادمة والمتأخرة", ["equipment"]),
         new("driver-assignments", "تعيينات السائقين", OperationalGroup, "فترات عمل السائقين على المعدات", ["period", "driver", "equipment"]),
         new("license-expiry", "صلاحية رخص القيادة", OperationalGroup, "تواريخ انتهاء رخص السائقين", []),
+        new("equipment-license-expiry", "صلاحية رخص المعدات", OperationalGroup, "تواريخ انتهاء تراخيص المعدات والمتبقي على كل رخصة", ["category", "project"]),
     ];
 
     public async Task<ReportDocument> BuildAsync(string key, ReportFilter f, CancellationToken ct = default)
@@ -93,6 +94,7 @@ public class ReportService(IAppDbContext db, IClock clock, CostQueryService cost
             "maintenance-schedule" => await ScheduleAsync(f, ct),
             "driver-assignments" => await DriverAssignmentsAsync(f, ct),
             "license-expiry" => await LicensesAsync(ct),
+            "equipment-license-expiry" => await EquipmentLicensesAsync(f, ct),
             _ => throw new NotFoundException("التقرير", key),
         };
         return doc with { Key = info.Key, Title = info.Title, Group = info.Group, Filters = await DescribeAsync(info, f, ct) };
@@ -481,6 +483,35 @@ public class ReportService(IAppDbContext db, IClock clock, CostQueryService cost
         [
             new("منتهية", rows.Count(r => r.LicenseExpiryDate < today), Integer),
             new($"تنتهي خلال {warn} يوم", rows.Count(r => r.LicenseExpiryDate >= today && r.LicenseExpiryDate.Value.DayNumber - today.DayNumber <= warn), Integer),
+        ]);
+    }
+
+    private async Task<ReportDocument> EquipmentLicensesAsync(ReportFilter f, CancellationToken ct)
+    {
+        var today = clock.Today;
+        var warn = (await settings.GetEntityAsync(ct)).LicenseExpiryWarningDays;
+        var rows = await db.Equipment.AsNoTracking().Where(e => e.IsActive)
+            .WhereIf(f.CategoryId.HasValue, e => e.CategoryId == f.CategoryId)
+            .WhereIf(f.ProjectId.HasValue, e => e.ProjectAssignments.Any(a => a.EndDate == null && a.ProjectId == f.ProjectId))
+            .OrderBy(e => e.LicenseExpiryDate == null).ThenBy(e => e.LicenseExpiryDate).ThenBy(e => e.Code)
+            .Select(e => new
+            {
+                e.Code, e.Name, Plate = e.PlateNumber ?? e.ChassisNumber, Category = e.Category!.NameAr, e.LicenseNumber, e.LicenseExpiryDate,
+                Project = e.ProjectAssignments.Where(a => a.EndDate == null).Select(a => a.Project!.Name).FirstOrDefault(),
+            })
+            .ToListAsync(ct);
+        string State(DateOnly? d) => d is null ? "غير مسجلة" : d < today ? "منتهية" : d.Value.DayNumber - today.DayNumber <= warn ? "تنتهي قريباً" : "سارية";
+        var cols = new List<ReportColumn> { new("الكود", Width: 0.7f), new("المعدة", Width: 1.5f), new("اللوحة/الشاسيه"), new("النوع"),
+            new("المشروع الحالي", Width: 1.3f), new("رقم الرخصة"), new("تاريخ الانتهاء", Date), new("الأيام المتبقية", Integer), new("الحالة", Width: 0.8f) };
+        return Doc([Table(null, cols, rows.Select(r => new object?[]
+        {
+            r.Code, r.Name, r.Plate, r.Category, r.Project, r.LicenseNumber, r.LicenseExpiryDate,
+            r.LicenseExpiryDate is { } d ? d.DayNumber - today.DayNumber : null, State(r.LicenseExpiryDate),
+        }))],
+        [
+            new("منتهية", rows.Count(r => r.LicenseExpiryDate < today), Integer),
+            new($"تنتهي خلال {warn} يوم", rows.Count(r => r.LicenseExpiryDate >= today && r.LicenseExpiryDate.Value.DayNumber - today.DayNumber <= warn), Integer),
+            new("غير مسجلة", rows.Count(r => r.LicenseExpiryDate == null), Integer),
         ]);
     }
 

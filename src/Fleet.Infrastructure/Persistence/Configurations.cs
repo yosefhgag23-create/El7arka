@@ -23,6 +23,8 @@ internal class EquipmentConfig : IEntityTypeConfiguration<Equipment>
         b.Property(x => x.Name).HasMaxLength(200).IsRequired();
         b.Property(x => x.PlateNumber).HasMaxLength(50);
         b.Property(x => x.ChassisNumber).HasMaxLength(100);
+        b.Property(x => x.LicenseNumber).HasMaxLength(50);
+        b.HasIndex(x => x.LicenseExpiryDate);
         b.HasIndex(x => x.Code).IsUnique();
         b.HasIndex(x => x.PlateNumber).IsUnique().HasFilter("PlateNumber IS NOT NULL");
         b.HasIndex(x => x.ChassisNumber).IsUnique().HasFilter("ChassisNumber IS NOT NULL");
